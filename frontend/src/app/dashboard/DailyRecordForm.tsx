@@ -1,0 +1,231 @@
+'use client'
+
+// 每日健康調理記錄表單主控元件
+import { useState } from 'react'
+import type {
+  BodyAreaTag,
+  BodySensationFormData,
+  DailyRecordPayload,
+  DietFormData,
+  SensationTypeTag,
+  SleepFormData,
+  WellnessActivityTag,
+  WellnessFormData,
+} from '@/types'
+import SleepSection from './SleepSection'
+import DietSection from './DietSection'
+import BodySensationSection from './BodySensationSection'
+import WellnessSection from './WellnessSection'
+
+// ---- 各區段的初始空值 ----
+
+const DEFAULT_SLEEP: SleepFormData = {
+  sleep_time: '',
+  wake_time: '',
+  quality_score: null,
+  notes: '',
+}
+
+const DEFAULT_BODY: BodySensationFormData = {
+  energy_level: null,
+  stress_level: null,
+  mood_score: null,
+  area_tag_ids: [],
+  sensation_type_tag_ids: [],
+  custom_note: '',
+}
+
+// ---- DB 記錄轉換為表單格式（預填既有資料）----
+
+/** 將 DB 睡眠記錄轉換為表單初始值 */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function toSleepForm(logs: any[]): SleepFormData {
+  const log = logs?.[0]
+  if (!log) return DEFAULT_SLEEP
+  return {
+    sleep_time: log.sleep_time ?? '',
+    wake_time: log.wake_time ?? '',
+    quality_score: log.quality_score ?? null,
+    notes: log.notes ?? '',
+  }
+}
+
+/** 將 DB 飲食記錄轉換為表單初始值 */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function toDietForm(logs: any[]): DietFormData[] {
+  if (!logs?.length) return []
+  return logs.map(l => ({
+    meal_type: l.meal_type ?? 'breakfast',
+    description: l.description ?? '',
+    water_intake_ml: l.water_intake_ml?.toString() ?? '',
+    notes: l.notes ?? '',
+  }))
+}
+
+/** 將 DB 身體感受記錄轉換為表單初始值 */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function toBodyForm(logs: any[]): BodySensationFormData {
+  const log = logs?.[0]
+  if (!log) return DEFAULT_BODY
+  return {
+    energy_level: log.energy_level ?? null,
+    stress_level: log.stress_level ?? null,
+    mood_score: log.mood_score ?? null,
+    area_tag_ids: (log.body_sensation_area_tags ?? []).map((t: { tag_id: string }) => t.tag_id),
+    sensation_type_tag_ids: (log.body_sensation_type_tags ?? []).map((t: { tag_id: string }) => t.tag_id),
+    custom_note: log.custom_note ?? '',
+  }
+}
+
+/** 將 DB 調理記錄轉換為表單初始值 */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function toWellnessForm(logs: any[]): WellnessFormData[] {
+  if (!logs?.length) return []
+  return logs.map(l => ({
+    tag_ids: (l.wellness_log_tags ?? []).map((t: { tag_id: string }) => t.tag_id),
+    duration_minutes: l.duration_minutes?.toString() ?? '',
+    custom_note: l.custom_note ?? '',
+  }))
+}
+
+// ---- 元件 Props ----
+
+interface ExistingRecord {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  sleep_logs: any[]
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  diet_logs: any[]
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  body_sensation_logs: any[]
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  wellness_logs: any[]
+}
+
+interface Props {
+  today: string                         // YYYY-MM-DD（台灣時區）
+  existingRecord: ExistingRecord | null  // 今日已存在的記錄（null 表示今日尚無記錄）
+  wellnessTags: WellnessActivityTag[]
+  bodyAreaTags: BodyAreaTag[]
+  sensationTags: SensationTypeTag[]
+}
+
+/**
+ * 每日記錄表單主控元件
+ * 管理 4 個區段的狀態，統一送出至 /api/daily-record
+ */
+export default function DailyRecordForm({
+  today,
+  existingRecord,
+  wellnessTags,
+  bodyAreaTags,
+  sensationTags,
+}: Props) {
+  const ex = existingRecord
+
+  // 各區段狀態，若今日已有記錄則預填既有資料
+  const [sleep, setSleep] = useState<SleepFormData>(() =>
+    ex ? toSleepForm(ex.sleep_logs) : DEFAULT_SLEEP
+  )
+  const [diet, setDiet] = useState<DietFormData[]>(() =>
+    ex ? toDietForm(ex.diet_logs) : []
+  )
+  const [body, setBody] = useState<BodySensationFormData>(() =>
+    ex ? toBodyForm(ex.body_sensation_logs) : DEFAULT_BODY
+  )
+  const [wellness, setWellness] = useState<WellnessFormData[]>(() =>
+    ex ? toWellnessForm(ex.wellness_logs) : []
+  )
+
+  const [saving, setSaving] = useState(false)
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle')
+
+  /**
+   * 送出表單：POST 完整記錄至 API
+   * 採用 upsert 策略，可重複儲存（更新既有記錄）
+   */
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setSaving(true)
+    setSaveStatus('idle')
+
+    const payload: DailyRecordPayload = {
+      record_date: today,
+      sleep,
+      diet,
+      body_sensation: body,
+      wellness,
+    }
+
+    try {
+      const res = await fetch('/api/daily-record', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      setSaveStatus(res.ok ? 'success' : 'error')
+    } catch {
+      setSaveStatus('error')
+    }
+
+    setSaving(false)
+    // 5 秒後清除狀態提示
+    setTimeout(() => setSaveStatus('idle'), 5000)
+  }
+
+  // 格式化今日日期供顯示（手動格式化確保 server/client 渲染一致，避免 hydration error）
+  const displayDate = (() => {
+    const d = new Date(today + 'T00:00:00')
+    const weekdays = ['日', '一', '二', '三', '四', '五', '六']
+    return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日 星期${weekdays[d.getDay()]}`
+  })()
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+
+      {/* 日期標題 */}
+      <div className="flex items-center justify-between">
+        <h2 className="text-sm font-medium text-gray-500">{displayDate}</h2>
+      </div>
+
+      {/* 四個記錄區段 */}
+      <SleepSection value={sleep} onChange={setSleep} />
+      <DietSection value={diet} onChange={setDiet} />
+      <BodySensationSection
+        value={body}
+        onChange={setBody}
+        bodyAreaTags={bodyAreaTags}
+        sensationTags={sensationTags}
+      />
+      <WellnessSection
+        value={wellness}
+        onChange={setWellness}
+        wellnessTags={wellnessTags}
+      />
+
+      {/* 儲存按鈕 + 狀態提示（移至表單最下方）*/}
+      <div className="flex flex-col items-end gap-3 pt-2">
+        {saveStatus === 'success' && (
+          <div className="w-full flex items-center gap-2 px-4 py-3 bg-green-50 border border-green-400 rounded-lg">
+            <span className="text-green-600 font-bold text-lg">✓</span>
+            <span className="text-green-700 font-semibold text-sm">記錄已成功儲存！</span>
+          </div>
+        )}
+        {saveStatus === 'error' && (
+          <div className="w-full flex items-center gap-2 px-4 py-3 bg-red-50 border border-red-400 rounded-lg">
+            <span className="text-red-500 font-bold text-lg">✗</span>
+            <span className="text-red-600 font-semibold text-sm">儲存失敗，請重試</span>
+          </div>
+        )}
+        <button
+          type="submit"
+          disabled={saving}
+          className="px-5 py-2 bg-gray-900 text-white text-sm font-medium rounded-lg
+                     hover:bg-gray-700 transition-colors
+                     disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {saving ? '儲存中...' : '儲存記錄'}
+        </button>
+      </div>
+    </form>
+  )
+}
