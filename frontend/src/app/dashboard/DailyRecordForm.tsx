@@ -17,6 +17,20 @@ import DietSection from './DietSection'
 import BodySensationSection from './BodySensationSection'
 import WellnessSection from './WellnessSection'
 
+// ---- 驗證錯誤型別 ----
+
+interface FormErrors {
+  sleep?: {
+    time_conflict?: string
+    duration?: string
+    quality?: string
+  }
+  body?: {
+    scores?: string
+    area_sensation?: string
+  }
+}
+
 // ---- 各區段的初始空值 ----
 
 const DEFAULT_SLEEP: SleepFormData = {
@@ -138,6 +152,50 @@ export default function DailyRecordForm({
 
   const [saving, setSaving] = useState(false)
   const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle')
+  const [errors, setErrors] = useState<FormErrors>({})
+
+  /**
+   * 計算睡眠時長（分鐘），支援跨日
+   */
+  function calcDurationMinutes(sleepTime: string, wakeTime: string): number {
+    const [sh, sm] = sleepTime.split(':').map(Number)
+    const [wh, wm] = wakeTime.split(':').map(Number)
+    let minutes = (wh * 60 + wm) - (sh * 60 + sm)
+    if (minutes < 0) minutes += 24 * 60
+    return minutes
+  }
+
+  /**
+   * 表單驗證：回傳錯誤物件，無錯誤時為空物件
+   */
+  function validate(): FormErrors {
+    const errs: FormErrors = {}
+
+    // 睡眠驗證
+    const { sleep_time, wake_time, quality_score } = sleep
+    if (sleep_time && wake_time) {
+      if (sleep_time === wake_time) {
+        errs.sleep = { ...errs.sleep, time_conflict: '入睡時間與起床時間不能相同' }
+      } else if (calcDurationMinutes(sleep_time, wake_time) > 16 * 60) {
+        errs.sleep = { ...errs.sleep, duration: '睡眠時間不能超過 16 小時' }
+      }
+    }
+    if (quality_score !== null && (quality_score < 1 || quality_score > 10)) {
+      errs.sleep = { ...errs.sleep, quality: '睡眠品質評分必須在 1-10 之間' }
+    }
+
+    // 身體感受驗證
+    const { energy_level, stress_level, mood_score, area_tag_ids, sensation_type_tag_ids } = body
+    const scores = [energy_level, stress_level, mood_score].filter(s => s !== null)
+    if (scores.some(s => s! < 1 || s! > 10)) {
+      errs.body = { ...errs.body, scores: '精力、壓力、心情評分必須在 1-10 之間' }
+    }
+    if (area_tag_ids.length > 0 && sensation_type_tag_ids.length === 0) {
+      errs.body = { ...errs.body, area_sensation: '選擇感受部位後，請至少選擇一個感受類型' }
+    }
+
+    return errs
+  }
 
   /**
    * 送出表單：POST 完整記錄至 API
@@ -145,6 +203,15 @@ export default function DailyRecordForm({
    */
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+
+    // 驗證失敗則中止送出
+    const validationErrors = validate()
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors)
+      return
+    }
+    setErrors({})
+
     setSaving(true)
     setSaveStatus('idle')
 
@@ -188,13 +255,14 @@ export default function DailyRecordForm({
       </div>
 
       {/* 四個記錄區段 */}
-      <SleepSection value={sleep} onChange={setSleep} />
+      <SleepSection value={sleep} onChange={setSleep} errors={errors.sleep} />
       <DietSection value={diet} onChange={setDiet} />
       <BodySensationSection
         value={body}
         onChange={setBody}
         bodyAreaTags={bodyAreaTags}
         sensationTags={sensationTags}
+        errors={errors.body}
       />
       <WellnessSection
         value={wellness}

@@ -3,11 +3,17 @@
 // 身體感受記錄區段元件
 import type { BodyAreaTag, BodySensationFormData, SensationTypeTag } from '@/types'
 
+interface BodyErrors {
+  scores?: string
+  area_sensation?: string
+}
+
 interface Props {
   value: BodySensationFormData
   onChange: (data: BodySensationFormData) => void
   bodyAreaTags: BodyAreaTag[]
   sensationTags: SensationTypeTag[]
+  errors?: BodyErrors
 }
 
 // 各評分欄位的說明文字（index 對應分數 1-5）
@@ -65,6 +71,7 @@ export default function BodySensationSection({
   onChange,
   bodyAreaTags,
   sensationTags,
+  errors,
 }: Props) {
   /** 更新單一評分欄位 */
   function updateScore(
@@ -113,6 +120,9 @@ export default function BodySensationSection({
         value={value.mood_score}
         onChange={v => updateScore('mood_score', v)}
       />
+      {errors?.scores && (
+        <p className="text-red-500 text-xs -mt-2">{errors.scores}</p>
+      )}
 
       {/* 感受部位標籤（多選） */}
       <div>
@@ -160,6 +170,9 @@ export default function BodySensationSection({
             </button>
           ))}
         </div>
+        {errors?.area_sensation && (
+          <p className="text-red-500 text-xs mt-1">{errors.area_sensation}</p>
+        )}
       </div>
 
       {/* 自述備註（提示為行為感受，非醫療診斷） */}
