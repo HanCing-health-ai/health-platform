@@ -1,6 +1,7 @@
 // Dashboard 頁面（Server Component）
 // 由 middleware 保護，未登入者會被重導至 /login
 import { redirect } from 'next/navigation'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import LogoutButton from './LogoutButton'
 import DailyRecordForm from './DailyRecordForm'
@@ -73,6 +74,12 @@ export default async function DashboardPage() {
           <h1 className="text-lg font-semibold text-gray-900">健康調理記錄</h1>
           <div className="flex items-center gap-4">
             <span className="text-sm text-gray-400">{user.email}</span>
+            <Link
+              href="/dashboard/history"
+              className="text-sm text-gray-500 hover:text-gray-900 transition-colors"
+            >
+              歷史記錄
+            </Link>
             <LogoutButton />
           </div>
         </div>
