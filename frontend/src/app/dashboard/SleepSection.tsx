@@ -64,7 +64,7 @@ export default function SleepSection({ value, onChange, errors }: Props) {
         </div>
       </div>
       {(errors?.time_conflict || errors?.duration) && (
-        <p className="text-red-500 text-xs mb-4">{errors.time_conflict ?? errors.duration}</p>
+        <p className="text-red-500 text-sm font-medium mb-4">⚠️ {errors.time_conflict ?? errors.duration}</p>
       )}
 
       {/* 睡眠品質評分 1-5 */}
@@ -90,7 +90,7 @@ export default function SleepSection({ value, onChange, errors }: Props) {
           ))}
         </div>
         {errors?.quality && (
-          <p className="text-red-500 text-xs mt-1">{errors.quality}</p>
+          <p className="text-red-500 text-sm font-medium mt-1">⚠️ {errors.quality}</p>
         )}
       </div>
 

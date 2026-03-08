@@ -1,7 +1,7 @@
 'use client'
 
 // 每日健康調理記錄表單主控元件
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import type {
   BodyAreaTag,
   BodySensationFormData,
@@ -154,6 +154,11 @@ export default function DailyRecordForm({
   const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle')
   const [errors, setErrors] = useState<FormErrors>({})
 
+  // 用於滾動到第一個錯誤區段
+  const sleepRef = useRef<HTMLDivElement>(null)
+  const bodyRef = useRef<HTMLDivElement>(null)
+  const errorSummaryRef = useRef<HTMLDivElement>(null)
+
   /**
    * 計算睡眠時長（分鐘），支援跨日
    */
@@ -204,10 +209,17 @@ export default function DailyRecordForm({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
 
-    // 驗證失敗則中止送出
+    // 驗證失敗則中止送出，並滾動至第一個錯誤區段
     const validationErrors = validate()
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors)
+      setTimeout(() => {
+        if (validationErrors.sleep) {
+          sleepRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        } else if (validationErrors.body) {
+          bodyRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        }
+      }, 50)
       return
     }
     setErrors({})
@@ -235,8 +247,8 @@ export default function DailyRecordForm({
     }
 
     setSaving(false)
-    // 5 秒後清除狀態提示
-    setTimeout(() => setSaveStatus('idle'), 5000)
+    // 3 秒後清除狀態提示
+    setTimeout(() => setSaveStatus('idle'), 3000)
   }
 
   // 格式化今日日期供顯示（手動格式化確保 server/client 渲染一致，避免 hydration error）
@@ -246,54 +258,87 @@ export default function DailyRecordForm({
     return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日 星期${weekdays[d.getDay()]}`
   })()
 
+  // 收集所有錯誤訊息供摘要框顯示
+  const allErrorMessages: string[] = [
+    errors.sleep?.time_conflict,
+    errors.sleep?.duration,
+    errors.sleep?.quality,
+    errors.body?.scores,
+    errors.body?.area_sensation,
+  ].filter((msg): msg is string => !!msg)
+
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <>
+      {/* 儲存成功：畫面正中央彈出視窗，3 秒後消失 */}
+      {saveStatus === 'success' && (
+        <div className="fixed inset-0 flex items-center justify-center z-50 pointer-events-none">
+          <div className="bg-green-500 text-white text-base font-semibold px-8 py-4 rounded-2xl shadow-xl">
+            ✅ 記錄已儲存成功！
+          </div>
+        </div>
+      )}
 
-      {/* 日期標題 */}
-      <div className="flex items-center justify-between">
-        <h2 className="text-sm font-medium text-gray-500">{displayDate}</h2>
-      </div>
+      <form onSubmit={handleSubmit} className="space-y-4">
 
-      {/* 四個記錄區段 */}
-      <SleepSection value={sleep} onChange={setSleep} errors={errors.sleep} />
-      <DietSection value={diet} onChange={setDiet} />
-      <BodySensationSection
-        value={body}
-        onChange={setBody}
-        bodyAreaTags={bodyAreaTags}
-        sensationTags={sensationTags}
-        errors={errors.body}
-      />
-      <WellnessSection
-        value={wellness}
-        onChange={setWellness}
-        wellnessTags={wellnessTags}
-      />
+        {/* 日期標題 */}
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-medium text-gray-500">{displayDate}</h2>
+        </div>
 
-      {/* 儲存按鈕 + 狀態提示（移至表單最下方）*/}
-      <div className="flex flex-col items-end gap-3 pt-2">
-        {saveStatus === 'success' && (
-          <div className="w-full flex items-center gap-2 px-4 py-3 bg-green-50 border border-green-400 rounded-lg">
-            <span className="text-green-600 font-bold text-lg">✓</span>
-            <span className="text-green-700 font-semibold text-sm">記錄已成功儲存！</span>
+        {/* 驗證錯誤摘要框：有錯誤時顯示，全部修正後消失 */}
+        {allErrorMessages.length > 0 && (
+          <div
+            ref={errorSummaryRef}
+            className="px-4 py-3 bg-red-50 border border-red-400 rounded-lg"
+          >
+            <p className="text-red-700 font-semibold text-sm mb-1">請修正以下錯誤後再儲存</p>
+            <ul className="list-disc list-inside space-y-0.5">
+              {allErrorMessages.map((msg, i) => (
+                <li key={i} className="text-red-600 text-sm">{msg}</li>
+              ))}
+            </ul>
           </div>
         )}
-        {saveStatus === 'error' && (
-          <div className="w-full flex items-center gap-2 px-4 py-3 bg-red-50 border border-red-400 rounded-lg">
-            <span className="text-red-500 font-bold text-lg">✗</span>
-            <span className="text-red-600 font-semibold text-sm">儲存失敗，請重試</span>
-          </div>
-        )}
-        <button
-          type="submit"
-          disabled={saving}
-          className="px-5 py-2 bg-gray-900 text-white text-sm font-medium rounded-lg
-                     hover:bg-gray-700 transition-colors
-                     disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {saving ? '儲存中...' : '儲存記錄'}
-        </button>
-      </div>
-    </form>
+
+        {/* 四個記錄區段 */}
+        <div ref={sleepRef}>
+          <SleepSection value={sleep} onChange={setSleep} errors={errors.sleep} />
+        </div>
+        <DietSection value={diet} onChange={setDiet} />
+        <div ref={bodyRef}>
+          <BodySensationSection
+            value={body}
+            onChange={setBody}
+            bodyAreaTags={bodyAreaTags}
+            sensationTags={sensationTags}
+            errors={errors.body}
+          />
+        </div>
+        <WellnessSection
+          value={wellness}
+          onChange={setWellness}
+          wellnessTags={wellnessTags}
+        />
+
+        {/* 儲存按鈕 + API 失敗提示 */}
+        <div className="flex flex-col items-end gap-3 pt-2">
+          {saveStatus === 'error' && (
+            <div className="w-full flex items-center gap-2 px-4 py-3 bg-red-50 border border-red-400 rounded-lg">
+              <span className="text-red-500 font-bold text-lg">✗</span>
+              <span className="text-red-600 font-semibold text-sm">儲存失敗，請重試</span>
+            </div>
+          )}
+          <button
+            type="submit"
+            disabled={saving}
+            className="px-5 py-2 bg-gray-900 text-white text-sm font-medium rounded-lg
+                       hover:bg-gray-700 transition-colors
+                       disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {saving ? '儲存中...' : '儲存記錄'}
+          </button>
+        </div>
+      </form>
+    </>
   )
 }

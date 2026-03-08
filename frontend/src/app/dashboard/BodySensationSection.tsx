@@ -121,7 +121,7 @@ export default function BodySensationSection({
         onChange={v => updateScore('mood_score', v)}
       />
       {errors?.scores && (
-        <p className="text-red-500 text-xs -mt-2">{errors.scores}</p>
+        <p className="text-red-500 text-sm font-medium -mt-2">⚠️ {errors.scores}</p>
       )}
 
       {/* 感受部位標籤（多選） */}
@@ -171,7 +171,7 @@ export default function BodySensationSection({
           ))}
         </div>
         {errors?.area_sensation && (
-          <p className="text-red-500 text-xs mt-1">{errors.area_sensation}</p>
+          <p className="text-red-500 text-sm font-medium mt-1">⚠️ {errors.area_sensation}</p>
         )}
       </div>
 
