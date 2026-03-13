@@ -1,1 +1,40 @@
+# Claude Code
 .claude/
+
+# 環境變數（絕對不能上傳）
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env*.local
+
+# Next.js
+.next/
+out/
+node_modules/
+npm-debug.log*
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+dist/
+
+# 系統檔案
+.DS_Store
+Thumbs.db
+
+# 編輯器
+.vscode/
+.idea/
+
+# 金鑰與憑證
+*.pem
+*.key
+*.cert
+*.p12
+secrets/
+credentials/
