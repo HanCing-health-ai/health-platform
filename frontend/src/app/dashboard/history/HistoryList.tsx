@@ -91,7 +91,7 @@ function Score({ value, label }: { value: number | null; label: string }) {
   return (
     <div className="flex flex-col items-center min-w-[48px]">
       <span className="text-xs text-gray-400 mb-0.5">{label}</span>
-      <span className={`text-sm font-semibold ${value ? 'text-gray-800' : 'text-gray-300'}`}>
+      <span className={`text-sm font-semibold ${value != null ? 'text-gray-800' : 'text-gray-300'}`}>
         {value ?? '－'}
       </span>
     </div>
