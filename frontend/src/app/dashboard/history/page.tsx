@@ -4,13 +4,15 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import HistoryList from './HistoryList'
+import TrendChart, { TrendDataPoint } from './TrendChart'
 
 /**
  * 歷史記錄頁面
  * Server Component 負責：
  *   1. 驗證使用者身分
  *   2. 並行 fetch 歷史記錄與所有標籤資料
- *   3. 傳入 HistoryList 做渲染
+ *   3. 計算最近 14 天趨勢資料，傳入 TrendChart
+ *   4. 傳入 HistoryList 做渲染
  */
 export default async function HistoryPage() {
   const supabase = await createClient()
@@ -49,6 +51,39 @@ export default async function HistoryPage() {
     supabase.from('wellness_activity_tags').select('id, name, category').order('category').order('name'),
   ])
 
+  // 計算最近 14 天趨勢資料
+  // 以今天為基準，往前推 13 天，每天對應一個資料點
+  const today = new Date()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const recordList: any[] = records ?? []
+
+  const trendData: TrendDataPoint[] = Array.from({ length: 14 }, (_, i) => {
+    const d = new Date(today)
+    d.setDate(today.getDate() - 13 + i)
+
+    // 格式化為 "YYYY-MM-DD" 用於比對資料庫 record_date
+    const isoDate = [
+      d.getFullYear(),
+      String(d.getMonth() + 1).padStart(2, '0'),
+      String(d.getDate()).padStart(2, '0'),
+    ].join('-')
+
+    // X 軸顯示標籤：M/D
+    const label = `${d.getMonth() + 1}/${d.getDate()}`
+
+    // 找到當天記錄（若無記錄則各值為 null，圖表線段中斷）
+    const record = recordList.find(r => r.record_date === isoDate)
+    const sleep = record?.sleep_logs?.[0] ?? null
+    const body = record?.body_sensation_logs?.[0] ?? null
+
+    return {
+      date: label,
+      energy: body?.energy_level ?? null,
+      sleep: sleep?.quality_score ?? null,
+      mood: body?.mood_score ?? null,
+    }
+  })
+
   return (
     <div className="min-h-screen bg-gray-50">
 
@@ -65,10 +100,14 @@ export default async function HistoryPage() {
         </div>
       </header>
 
-      {/* 歷史列表 */}
-      <main className="max-w-2xl mx-auto px-4 py-6">
+      <main className="max-w-2xl mx-auto px-4 py-6 space-y-6">
+
+        {/* 趨勢折線圖（列表上方）*/}
+        <TrendChart data={trendData} />
+
+        {/* 歷史記錄列表 */}
         <HistoryList
-          records={records ?? []}
+          records={recordList}
           bodyAreaTags={bodyAreaTags ?? []}
           sensationTags={sensationTags ?? []}
           wellnessTags={wellnessTags ?? []}
