@@ -48,6 +48,7 @@ export default async function DashboardPage() {
       .from('daily_records')
       .select(`
         id,
+        chief_complaint,
         sleep_logs(*),
         diet_logs(*),
         body_sensation_logs(

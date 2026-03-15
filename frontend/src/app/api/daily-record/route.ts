@@ -21,6 +21,7 @@ export async function GET(request: NextRequest) {
     .from('daily_records')
     .select(`
       id,
+      chief_complaint,
       sleep_logs(*),
       diet_logs(*),
       body_sensation_logs(
@@ -52,13 +53,17 @@ export async function POST(request: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const payload: DailyRecordPayload = await request.json()
-  const { record_date, sleep, diet, body_sensation, wellness } = payload
+  const { record_date, chief_complaint, sleep, diet, body_sensation, wellness } = payload
 
-  // 1. Upsert daily_records，取得 record_id
+  // 1. Upsert daily_records，取得 record_id（同時寫入主訴欄位）
   const { data: record, error: recordError } = await supabase
     .from('daily_records')
     .upsert(
-      { user_id: user.id, record_date },
+      {
+        user_id: user.id,
+        record_date,
+        chief_complaint: chief_complaint.trim() || null,
+      },
       { onConflict: 'user_id,record_date' }
     )
     .select('id')

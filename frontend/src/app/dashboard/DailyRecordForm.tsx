@@ -105,6 +105,7 @@ function toWellnessForm(logs: any[]): WellnessFormData[] {
 // ---- 元件 Props ----
 
 interface ExistingRecord {
+  chief_complaint?: string | null
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   sleep_logs: any[]
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -135,6 +136,9 @@ export default function DailyRecordForm({
   sensationTags,
 }: Props) {
   const ex = existingRecord
+
+  // 主訴欄位狀態（今日最困擾的事，選填）
+  const [chiefComplaint, setChiefComplaint] = useState(ex?.chief_complaint ?? '')
 
   // 各區段狀態，若今日已有記錄則預填既有資料
   const [sleep, setSleep] = useState<SleepFormData>(() =>
@@ -229,6 +233,7 @@ export default function DailyRecordForm({
 
     const payload: DailyRecordPayload = {
       record_date: today,
+      chief_complaint: chiefComplaint,
       sleep,
       diet,
       body_sensation: body,
@@ -283,6 +288,31 @@ export default function DailyRecordForm({
         {/* 日期標題 */}
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-medium text-gray-500">{displayDate}</h2>
+        </div>
+
+        {/* 主訴優先欄位：今天最困擾你的是什麼？（選填，最多 200 字）*/}
+        <div className="bg-white rounded-2xl border border-gray-200 px-5 py-4">
+          <label
+            htmlFor="chief-complaint"
+            className="block text-sm font-semibold text-gray-800 mb-2"
+          >
+            今天最困擾你的是什麼？
+            <span className="ml-1 text-xs font-normal text-gray-400">選填</span>
+          </label>
+          <textarea
+            id="chief-complaint"
+            value={chiefComplaint}
+            onChange={e => setChiefComplaint(e.target.value)}
+            maxLength={200}
+            rows={3}
+            placeholder="例如：右肩最近特別緊繃，睡覺翻身會不舒服..."
+            className="w-full px-3 py-2 text-sm text-gray-800 bg-gray-50 border border-gray-200
+                       rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-gray-300
+                       placeholder:text-gray-300"
+          />
+          <p className="text-right text-xs text-gray-300 mt-1">
+            {chiefComplaint.length} / 200
+          </p>
         </div>
 
         {/* 驗證錯誤摘要框：有錯誤時顯示，全部修正後消失 */}

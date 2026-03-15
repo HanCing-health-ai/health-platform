@@ -57,11 +57,12 @@ CREATE TABLE profiles (
 
 -- 每日健康調理記錄（主表，每位使用者每天只有一筆）
 CREATE TABLE daily_records (
-    id          uuid        PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id     uuid        NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-    record_date date        NOT NULL,
-    created_at  timestamptz NOT NULL DEFAULT now(),
-    updated_at  timestamptz NOT NULL DEFAULT now(),
+    id                uuid        PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id           uuid        NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    record_date       date        NOT NULL,
+    chief_complaint   text,                      -- 使用者今日最困擾的事（選填，上限 200 字）
+    created_at        timestamptz NOT NULL DEFAULT now(),
+    updated_at        timestamptz NOT NULL DEFAULT now(),
     UNIQUE (user_id, record_date)                -- 每人每日唯一
 );
 

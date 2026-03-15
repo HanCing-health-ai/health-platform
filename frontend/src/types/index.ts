@@ -36,7 +36,8 @@ export interface SensationTypeTag {
 export interface DailyRecord {
   id: string
   user_id: string
-  record_date: string   // YYYY-MM-DD
+  record_date: string            // YYYY-MM-DD
+  chief_complaint: string | null // 今日最困擾的事（選填，上限 200 字）
   created_at: string
   updated_at: string
 }
@@ -117,7 +118,8 @@ export interface WellnessFormData {
 
 /** 每日記錄完整表單提交資料（POST /api/daily-record 的 payload） */
 export interface DailyRecordPayload {
-  record_date: string   // YYYY-MM-DD
+  record_date: string            // YYYY-MM-DD
+  chief_complaint: string        // 今日最困擾的事（選填，空字串代表未填）
   sleep: SleepFormData
   diet: DietFormData[]
   body_sensation: BodySensationFormData
