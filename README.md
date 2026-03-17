@@ -1,4 +1,4 @@
-# ConditionAI — 健康調理行為模式分析與決策支援引擎
+# ConditionAI — 健康調理行為模式分析與決策支援引擎v2.7
 
 > AI-powered behavioral pattern analysis and decision support engine  
 > for traditional bodywork practitioners in Taiwan.
