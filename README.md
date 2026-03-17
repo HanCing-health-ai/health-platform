@@ -100,5 +100,4 @@ AI-powered behavioral pattern analysis and decision support engine for tradition
 - ❌ 不使用：診斷、治療、疾病、症狀、風險、處方
 
 ## 授權
-
-Private — 智慧創新大賽參賽作品
+MIT License — 智慧創新大賞 AI 應用類參賽作品
