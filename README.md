@@ -32,7 +32,7 @@ AI-powered behavioral pattern analysis and decision support engine for tradition
 | 第四層 | 可解釋式排序層 | 建議排序＋信心分數，非黑箱 |
 | 第五層 | 驗證優化層 | 每日自動 review → 優化建議 → 人工決策執行 |
 
-## 目前已完成（V1 競賽展示版）
+## 目前已完成（V1 測試版）
 
 ### 前端（Next.js 14，已部署 Vercel）
 - 每日記錄表單（睡眠/飲食/壓力/感受）
@@ -72,7 +72,7 @@ AI-powered behavioral pattern analysis and decision support engine for tradition
 | Supabase | 資料庫＋API | 12 張資料表＋RLS 權限隔離 |
 | Python FastAPI | 後端 | 風險分流＋Prompt Injection 過濾＋Claude API 串接＋回傳驗證 |
 | Claude API | Structured Output 引擎 | 單次呼叫產出師傅版＋客戶版＋行為標籤 JSON |
-| n8n | 自動化工作流 | 問卷→分流→寫庫→Line Notify（競賽後建置） |
+| n8n | 自動化工作流 | 問卷→分流→寫庫→Line Notify |
 | Line Notify | 通知推送 | 師傅端即時通知、客戶回訪提醒 |
 | Ollama | 本地 LLM（V2） | 消除雲端 API 費用，資料不離境 |
 
