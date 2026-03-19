@@ -1,10 +1,6 @@
 'use client'
 
-// 歷史記錄列表元件（Client Component）
-// 每筆顯示日期與摘要指標，點擊可展開完整內容
 import { useState } from 'react'
-
-// ---- 型別定義（對應 Supabase 巢狀查詢回傳格式）----
 
 interface SleepLogRow {
   quality_score: number | null
@@ -39,10 +35,28 @@ interface WellnessLogRow {
 interface HistoryRecord {
   id: string
   record_date: string
+  chief_complaint?: string | null
   sleep_logs: SleepLogRow[]
   diet_logs: DietLogRow[]
   body_sensation_logs: BodySensationLogRow[]
   wellness_logs: WellnessLogRow[]
+}
+
+interface AiAnalysis {
+  record_date: string
+  client_output: {
+    pattern_type: string
+    pattern_description: string
+    behavior_suggestions: string[]
+  } | null
+  practitioner_output: {
+    pattern_summary: string
+    suggested_sequence: string[]
+    sequence_reason: string
+    caution_notes: string
+    confidence_score: number
+  } | null
+  confidence_score: number | null
 }
 
 interface TagItem {
@@ -60,25 +74,21 @@ interface Props {
   bodyAreaTags: TagItem[]
   sensationTags: TagItem[]
   wellnessTags: WellnessTagItem[]
+  aiAnalyses: AiAnalysis[]
 }
 
-// ---- 輔助函式 ----
-
-/** 依 id 查詢標籤名稱 */
 function resolveTagNames(tagIds: string[], tags: TagItem[]): string[] {
   return tagIds
     .map(id => tags.find(t => t.id === id)?.name)
     .filter((n): n is string => !!n)
 }
 
-/** 格式化日期為「M/D 星期X」 */
 function formatDate(dateStr: string): string {
   const d = new Date(dateStr + 'T00:00:00')
   const weekdays = ['日', '一', '二', '三', '四', '五', '六']
   return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日 星期${weekdays[d.getDay()]}`
 }
 
-/** 餐次標籤對照 */
 const MEAL_LABELS: Record<string, string> = {
   breakfast: '早餐',
   lunch: '午餐',
@@ -86,7 +96,6 @@ const MEAL_LABELS: Record<string, string> = {
   snack: '點心',
 }
 
-/** 分數顯示：null 時顯示 "－" */
 function Score({ value, label }: { value: number | null; label: string }) {
   return (
     <div className="flex flex-col items-center min-w-[48px]">
@@ -98,17 +107,17 @@ function Score({ value, label }: { value: number | null; label: string }) {
   )
 }
 
-// ---- 單筆記錄列（摘要 + 展開詳情）----
-
 interface RecordRowProps {
   record: HistoryRecord
   bodyAreaTags: TagItem[]
   sensationTags: TagItem[]
   wellnessTags: WellnessTagItem[]
+  aiAnalysis: AiAnalysis | null
 }
 
-function RecordRow({ record, bodyAreaTags, sensationTags, wellnessTags }: RecordRowProps) {
+function RecordRow({ record, bodyAreaTags, sensationTags, wellnessTags, aiAnalysis }: RecordRowProps) {
   const [expanded, setExpanded] = useState(false)
+  const [activeTab, setActiveTab] = useState<'client' | 'practitioner'>('client')
 
   const sleep = record.sleep_logs?.[0] ?? null
   const body = record.body_sensation_logs?.[0] ?? null
@@ -119,31 +128,23 @@ function RecordRow({ record, bodyAreaTags, sensationTags, wellnessTags }: Record
   return (
     <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
 
-      {/* 摘要列（點擊展開/收合）*/}
+      {/* 摘要列 */}
       <button
         type="button"
         onClick={() => setExpanded(prev => !prev)}
         className="w-full px-5 py-4 flex items-center gap-4 hover:bg-gray-50 transition-colors text-left"
       >
-        {/* 日期 */}
         <span className="text-sm font-medium text-gray-700 min-w-[160px]">
           {formatDate(record.record_date)}
         </span>
-
-        {/* 三項評分 */}
         <div className="flex gap-3">
           <Score value={sleep?.quality_score ?? null} label="睡眠" />
           <Score value={body?.energy_level ?? null} label="精力" />
           <Score value={body?.mood_score ?? null} label="心情" />
         </div>
-
-        {/* 身體部位標籤（最多顯示 3 個）*/}
         <div className="flex flex-wrap gap-1 flex-1">
           {areaTagNames.slice(0, 3).map(name => (
-            <span
-              key={name}
-              className="px-2 py-0.5 text-xs bg-gray-100 text-gray-600 rounded-full"
-            >
+            <span key={name} className="px-2 py-0.5 text-xs bg-gray-100 text-gray-600 rounded-full">
               {name}
             </span>
           ))}
@@ -151,8 +152,12 @@ function RecordRow({ record, bodyAreaTags, sensationTags, wellnessTags }: Record
             <span className="text-xs text-gray-400">+{areaTagNames.length - 3}</span>
           )}
         </div>
-
-        {/* 展開箭頭 */}
+        {/* AI 分析標記 */}
+        {aiAnalysis && (
+          <span className="text-xs text-green-600 bg-green-50 px-2 py-0.5 rounded-full shrink-0">
+            ✨ 有AI分析
+          </span>
+        )}
         <span className="text-gray-400 text-sm ml-auto shrink-0">
           {expanded ? '▲' : '▼'}
         </span>
@@ -161,6 +166,95 @@ function RecordRow({ record, bodyAreaTags, sensationTags, wellnessTags }: Record
       {/* 展開詳情 */}
       {expanded && (
         <div className="border-t border-gray-100 px-5 py-4 space-y-5 text-sm text-gray-700">
+
+          {/* 主訴 */}
+          {record.chief_complaint && (
+            <section>
+              <h3 className="font-semibold text-gray-900 mb-1">主訴</h3>
+              <p className="text-gray-600 text-sm">{record.chief_complaint}</p>
+            </section>
+          )}
+
+          {/* AI 分析區塊 */}
+          {aiAnalysis?.client_output && (
+            <section>
+              <div className="flex border-b border-gray-200 mb-3">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('client')}
+                  className={`px-3 py-1.5 text-xs font-medium border-b-2 transition-colors ${
+                    activeTab === 'client'
+                      ? 'border-green-500 text-green-700'
+                      : 'border-transparent text-gray-400 hover:text-gray-600'
+                  }`}
+                >
+                  ✨ 行為模式分析
+                </button>
+                {aiAnalysis.practitioner_output && (
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('practitioner')}
+                    className={`px-3 py-1.5 text-xs font-medium border-b-2 transition-colors ${
+                      activeTab === 'practitioner'
+                        ? 'border-blue-500 text-blue-700'
+                        : 'border-transparent text-gray-400 hover:text-gray-600'
+                    }`}
+                  >
+                    🔧 師傅調理建議
+                  </button>
+                )}
+              </div>
+
+              {activeTab === 'client' && (
+                <div className="p-4 bg-green-50 border border-green-200 rounded-xl">
+                  <p className="text-xs text-green-700 font-medium mb-1">
+                    {aiAnalysis.client_output.pattern_type}
+                  </p>
+                  <p className="text-sm text-gray-700 mb-2">
+                    {aiAnalysis.client_output.pattern_description}
+                  </p>
+                  <ul className="space-y-1">
+                    {aiAnalysis.client_output.behavior_suggestions.map((s, i) => (
+                      <li key={i} className="text-xs text-gray-600 flex gap-1.5">
+                        <span className="text-green-500 font-bold">•</span>{s}
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="mt-2 text-xs text-gray-400">
+                    以上為行為模式調整參考，不構成任何醫療建議
+                  </p>
+                </div>
+              )}
+
+              {activeTab === 'practitioner' && aiAnalysis.practitioner_output && (
+                <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl space-y-2">
+                  <p className="text-xs text-gray-600">
+                    <span className="font-medium">模式歸納：</span>
+                    {aiAnalysis.practitioner_output.pattern_summary}
+                  </p>
+                  <div>
+                    <p className="text-xs font-medium text-gray-600 mb-1">建議調理順序：</p>
+                    <ol className="list-decimal list-inside space-y-0.5">
+                      {aiAnalysis.practitioner_output.suggested_sequence.map((s, i) => (
+                        <li key={i} className="text-xs text-gray-600">{s}</li>
+                      ))}
+                    </ol>
+                  </div>
+                  <p className="text-xs text-gray-500 italic">
+                    {aiAnalysis.practitioner_output.sequence_reason}
+                  </p>
+                  {aiAnalysis.practitioner_output.caution_notes && (
+                    <p className="text-xs text-amber-600 bg-amber-50 px-2 py-1.5 rounded-lg">
+                      ⚠️ {aiAnalysis.practitioner_output.caution_notes}
+                    </p>
+                  )}
+                  <p className="text-xs text-gray-400">
+                    信心分數：{((aiAnalysis.practitioner_output.confidence_score ?? 0) * 100).toFixed(0)}%
+                  </p>
+                </div>
+              )}
+            </section>
+          )}
 
           {/* 睡眠詳情 */}
           {sleep && (
@@ -282,13 +376,7 @@ function RecordRow({ record, bodyAreaTags, sensationTags, wellnessTags }: Record
   )
 }
 
-// ---- 主元件 ----
-
-/**
- * 歷史記錄列表
- * 每筆顯示日期摘要，點擊展開完整內容
- */
-export default function HistoryList({ records, bodyAreaTags, sensationTags, wellnessTags }: Props) {
+export default function HistoryList({ records, bodyAreaTags, sensationTags, wellnessTags, aiAnalyses }: Props) {
   if (records.length === 0) {
     return (
       <div className="text-center py-16 text-gray-400">
@@ -301,15 +389,19 @@ export default function HistoryList({ records, bodyAreaTags, sensationTags, well
   return (
     <div className="space-y-3">
       <p className="text-xs text-gray-400 mb-4">共 {records.length} 筆記錄，點擊可展開完整內容</p>
-      {records.map(record => (
-        <RecordRow
-          key={record.id}
-          record={record as HistoryRecord}
-          bodyAreaTags={bodyAreaTags}
-          sensationTags={sensationTags}
-          wellnessTags={wellnessTags}
-        />
-      ))}
+      {records.map(record => {
+        const aiAnalysis = aiAnalyses.find(a => a.record_date === record.record_date) ?? null
+        return (
+          <RecordRow
+            key={record.id}
+            record={record as HistoryRecord}
+            bodyAreaTags={bodyAreaTags}
+            sensationTags={sensationTags}
+            wellnessTags={wellnessTags}
+            aiAnalysis={aiAnalysis}
+          />
+        )
+      })}
     </div>
   )
 }

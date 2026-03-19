@@ -21,17 +21,20 @@ export default async function HistoryPage() {
   if (!user) redirect('/login')
 
   // 並行 fetch 所有歷史記錄與標籤對照表
-  const [
+  
+    const [
     { data: records },
     { data: bodyAreaTags },
     { data: sensationTags },
     { data: wellnessTags },
+    { data: aiAnalyses },
   ] = await Promise.all([
     supabase
       .from('daily_records')
       .select(`
         id,
         record_date,
+        chief_complaint,
         sleep_logs(quality_score, duration_hours, sleep_time, wake_time, notes),
         diet_logs(meal_type, description, water_intake_ml, notes),
         body_sensation_logs(
@@ -49,6 +52,11 @@ export default async function HistoryPage() {
     supabase.from('body_area_tags').select('id, name').order('created_at'),
     supabase.from('sensation_type_tags').select('id, name').order('created_at'),
     supabase.from('wellness_activity_tags').select('id, name, category').order('category').order('name'),
+    supabase
+      .from('ai_analysis_results')
+      .select('record_date, client_output, practitioner_output, confidence_score')
+      .eq('user_id', user.id)
+      .order('record_date', { ascending: false }),
   ])
 
   // 計算最近 14 天趨勢資料
@@ -111,6 +119,7 @@ export default async function HistoryPage() {
           bodyAreaTags={bodyAreaTags ?? []}
           sensationTags={sensationTags ?? []}
           wellnessTags={wellnessTags ?? []}
+          aiAnalyses={aiAnalyses ?? []}
         />
       </main>
     </div>
