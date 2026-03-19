@@ -93,3 +93,31 @@
 3. 是否需要同步更新 CLAUDE.md 的已完成功能清單？
 
 ---
+---
+
+# 待開發功能清單（競賽後依序處理）
+
+## 方向B：使用者角色系統
+優先順序：競賽後第一個做
+涉及範圍：
+- Supabase profiles 資料表加入 role 欄位（client / practitioner / enterprise / developer）
+- Auth 流程加入角色判斷
+- 前端根據角色控制顯示內容：
+  - client（客戶）：只看到「我的行為模式」Tab
+  - practitioner（師傅）：看到「行為模式分析」+「師傅調理建議」兩個 Tab
+  - enterprise（企業端）：看到整體客群趨勢、ESG 報告、師傅績效
+  - developer（開發者）：可切換預覽所有角色的介面樣式
+
+## 開發者模式（Developer Preview）
+設計規格：
+- 登入後右上角顯示角色切換器（client / practitioner / enterprise）
+- 切換後介面即時變更，模擬各角色看到的畫面
+- 僅 developer 角色可見，不影響正式用戶體驗
+- 用途：Demo 展示、UI 測試、新功能預覽
+
+## 企業端功能（V2）
+設計規格：
+- 工作室客群整體行為模式分析
+- 師傅績效追蹤（改善率、回訪率）
+- ESG 員工健康報告匯出
+- 多師傅管理後台
