@@ -89,12 +89,13 @@ export default async function DashboardPage() {
       {/* 每日記錄表單 */}
       <main className="max-w-2xl mx-auto px-4 py-6">
         <DailyRecordForm
-          today={today}
-          existingRecord={existingRecord}
-          wellnessTags={wellnessTags ?? []}
-          bodyAreaTags={bodyAreaTags ?? []}
-          sensationTags={sensationTags ?? []}
-        />
+  today={today}
+  userId={user.id}
+  existingRecord={existingRecord}
+  wellnessTags={wellnessTags ?? []}
+  bodyAreaTags={bodyAreaTags ?? []}
+  sensationTags={sensationTags ?? []}
+/>
       </main>
     </div>
   )

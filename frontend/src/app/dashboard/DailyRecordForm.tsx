@@ -69,6 +69,7 @@ interface ExistingRecord {
 
 interface Props {
   today: string
+  userId: string
   existingRecord: ExistingRecord | null
   wellnessTags: WellnessActivityTag[]
   bodyAreaTags: BodyAreaTag[]
@@ -146,7 +147,7 @@ function AdoptionButtons({ recordDate }: { recordDate: string }) {
     </div>
   )
 }
-export default function DailyRecordForm({ today, existingRecord, wellnessTags, bodyAreaTags, sensationTags }: Props) {
+export default function DailyRecordForm({ today, userId, existingRecord, wellnessTags, bodyAreaTags, sensationTags }: Props) {
   const ex = existingRecord
   const [chiefComplaint, setChiefComplaint] = useState(ex?.chief_complaint ?? '')
   const [sleep, setSleep] = useState<SleepFormData>(() => ex ? toSleepForm(ex.sleep_logs) : DEFAULT_SLEEP)
@@ -228,6 +229,8 @@ export default function DailyRecordForm({ today, existingRecord, wellnessTags, b
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    // 今日已有記錄，不重複送出 AI 分析
+if (existingRecord && aiSuggestion) return
     const validationErrors = validate()
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors)
@@ -267,11 +270,11 @@ export default function DailyRecordForm({ today, existingRecord, wellnessTags, b
         setTimeout(() => aiSuggestionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100)
 
         try {
-          const aiRes = await fetch('http://127.0.0.1:8000/api/analyze', {
+          const aiRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/analyze`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              client_id: 'user_' + today,
+              client_id: userId,
               occupation_type: '一般用戶',
               discomfort_areas: body.area_tag_ids.length > 0 ? body.area_tag_ids : ['未指定'],
               primary_complaint: chiefComplaint || '無特定主訴',

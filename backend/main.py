@@ -1,4 +1,5 @@
 import json
+from datetime import datetime, timezone, timedelta
 import os
 import sys
 import httpx
@@ -7,9 +8,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
 from dotenv import load_dotenv
+from supabase import create_client
 
 # 載入環境變數
 load_dotenv()
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
+supabase = create_client(SUPABASE_URL, SUPABASE_KEY)    
 
 # 載入現有模組
 sys.path.append(os.path.dirname(__file__))
@@ -105,6 +110,20 @@ async def analyze_client(req: AnalysisRequest):
         raise HTTPException(
             status_code=400,
             detail="請至少選擇一個不適部位"
+        )
+    # Step 0c：24 小時去重
+    today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+    
+    existing = supabase.table("daily_records") \
+        .select("id") \
+        .eq("client_id", req.client_id) \
+        .gte("created_at", today_start) \
+        .execute()
+    
+    if existing.data and len(existing.data) > 0:
+        raise HTTPException(
+            status_code=400,
+            detail="今日記錄已存在，如需查看請至歷史記錄頁面"
         )
     
     # Step 1：Injection Guard 掃描
