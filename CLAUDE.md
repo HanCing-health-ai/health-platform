@@ -16,7 +16,7 @@
 - 後端：Python 3.11 + FastAPI（backend/main.py）
 - AI 串接：Claude API（claude-sonnet-4-20250514）Structured Output
 - 資料庫：Supabase（PostgreSQL + Auth + RLS）
-- 部署：Vercel（前端）+ 本地開發（FastAPI）
+- 部署：Vercel（前端）+ 本地開發（FastAPI，待部署 VPS）
 - 版本控制：Git + GitHub（HanCing-health-ai/health-platform）
 
 ---
@@ -53,17 +53,40 @@
 
 ---
 
-# 已完成功能（修改前必須告知）
+# 已完成功能
 - 登入/註冊流程（/login + /auth/callback）
 - 每日記錄表單（DailyRecordForm.tsx）含 AI 分析串接
 - 前端表單驗證（睡眠、身體感受）
 - AI 建議卡片（Tab 切換：客戶版／師傅版）
 - AI 分析結果持久化（ai_analysis_results 資料表，每日限一次）
-- 歷史記錄查看（/dashboard/history）
+- 師傅端 AI 採納按鈕（已參考／本次未使用，寫入 practitioner_adopted）
+- 歷史記錄查看（/dashboard/history）含 AI 分析顯示
 - 14天趨勢圖表
 - FastAPI 後端（/api/analyze + /api/demo/sample）
 - Prompt Injection 防護（injection_guard.py，6 案例通過）
 - 風險分流（risk_triage.py，A/B/C 三類）
+
+---
+
+# 技術待辦清單（依優先順序）
+
+## 🔴 上線前必須完成（等 VPS）
+- [ ] Hetzner VPS 建立 + FastAPI 部署
+- [ ] Layer 5 VPS 安全強化（UFW、SSH Key、Nginx、fail2ban）
+- [ ] Webhook Token 驗證（Layer 1）
+- [ ] n8n 工作流三條串接（client_intake / follow_up_trigger / daily_summary）
+
+## 🟡 試點前必須完成（現在可做）
+- [ ] Input Quality Gate（字數不足/部位未選/24小時去重）
+- [ ] localStorage 表單暫存（防重新整理資料消失）
+- [ ] 調理項目說明文字 + 客戶偏好調理方式欄位
+- [ ] RWD 手機版檢查與修正
+
+## 🟢 V1.5（體驗優化）
+- [ ] 師傅端服務成效摘要（本月 X 位客戶完成回訪，平均改善 +Y）
+- [ ] 問卷視覺完成感優化
+- [ ] treatment_records 資料結構啟用
+- [ ] 歷史 AI 分析時間軸頁面
 
 ---
 
@@ -90,34 +113,4 @@
 # 每次完成功能模組後，主動提示：
 1. 這個模組需要哪些邊界條件（edge case）需要處理？
 2. 這個功能是否觸碰到「非醫療器材」的法規紅線？
-3. 是否需要同步更新 CLAUDE.md 的已完成功能清單？
-
----
----
-
-# 待開發功能清單（競賽後依序處理）
-
-## 方向B：使用者角色系統
-優先順序：競賽後第一個做
-涉及範圍：
-- Supabase profiles 資料表加入 role 欄位（client / practitioner / enterprise / developer）
-- Auth 流程加入角色判斷
-- 前端根據角色控制顯示內容：
-  - client（客戶）：只看到「我的行為模式」Tab
-  - practitioner（師傅）：看到「行為模式分析」+「師傅調理建議」兩個 Tab
-  - enterprise（企業端）：看到整體客群趨勢、ESG 報告、師傅績效
-  - developer（開發者）：可切換預覽所有角色的介面樣式
-
-## 開發者模式（Developer Preview）
-設計規格：
-- 登入後右上角顯示角色切換器（client / practitioner / enterprise）
-- 切換後介面即時變更，模擬各角色看到的畫面
-- 僅 developer 角色可見，不影響正式用戶體驗
-- 用途：Demo 展示、UI 測試、新功能預覽
-
-## 企業端功能（V2）
-設計規格：
-- 工作室客群整體行為模式分析
-- 師傅績效追蹤（改善率、回訪率）
-- ESG 員工健康報告匯出
-- 多師傅管理後台
+3. 是否需要同步更新 CLAUDE.md 的技術待辦清單？
