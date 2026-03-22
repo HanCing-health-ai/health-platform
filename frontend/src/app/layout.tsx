@@ -14,7 +14,7 @@ const geistMono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "健康調理記錄平台",
+  title: "ConditionAI",
   description: "行為模式導向的健康管理工具",
 };
 

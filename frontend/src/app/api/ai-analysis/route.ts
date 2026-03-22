@@ -59,3 +59,28 @@ export async function POST(request: NextRequest) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ success: true })
 }
+/**
+ * PATCH /api/ai-analysis
+ * 師傅記錄 AI 建議採納狀態
+ */
+export async function PATCH(request: NextRequest) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const body = await request.json()
+  const { record_date, practitioner_adopted, adoption_note } = body
+
+  const { error } = await supabase
+    .from('ai_analysis_results')
+    .update({
+      practitioner_adopted,
+      adopted_at: new Date().toISOString(),
+      adoption_note: adoption_note ?? null,
+    })
+    .eq('user_id', user.id)
+    .eq('record_date', record_date)
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json({ success: true })
+}

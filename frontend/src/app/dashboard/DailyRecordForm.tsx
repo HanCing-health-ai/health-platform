@@ -96,6 +96,56 @@ interface AiAnalysis {
   }
 }
 
+// 師傅端 AI 建議採納回饋元件
+function AdoptionButtons({ recordDate }: { recordDate: string }) {
+  const [status, setStatus] = useState<'idle' | 'adopted' | 'skipped' | 'saving'>('idle')
+
+  async function handleAdoption(adopted: boolean) {
+    setStatus('saving')
+    try {
+      await fetch('/api/ai-analysis', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          record_date: recordDate,
+          practitioner_adopted: adopted,
+          adoption_note: adopted ? '師傅已參考此建議' : '師傅本次未使用',
+        }),
+      })
+      setStatus(adopted ? 'adopted' : 'skipped')
+    } catch {
+      setStatus('idle')
+    }
+  }
+
+  if (status === 'adopted') {
+    return <p className="text-xs text-green-600 mt-2">✅ 已記錄：您參考了此建議</p>
+  }
+  if (status === 'skipped') {
+    return <p className="text-xs text-gray-400 mt-2">已記錄：本次未使用</p>
+  }
+
+  return (
+    <div className="flex gap-2 mt-3 pt-3 border-t border-blue-100">
+      <button
+        type="button"
+        onClick={() => handleAdoption(true)}
+        disabled={status === 'saving'}
+        className="flex-1 py-1.5 text-xs font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+      >
+        {status === 'saving' ? '記錄中...' : '✅ 已參考此建議'}
+      </button>
+      <button
+        type="button"
+        onClick={() => handleAdoption(false)}
+        disabled={status === 'saving'}
+        className="flex-1 py-1.5 text-xs font-medium bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 disabled:opacity-50 transition-colors"
+      >
+        ⏭ 本次未使用
+      </button>
+    </div>
+  )
+}
 export default function DailyRecordForm({ today, existingRecord, wellnessTags, bodyAreaTags, sensationTags }: Props) {
   const ex = existingRecord
   const [chiefComplaint, setChiefComplaint] = useState(ex?.chief_complaint ?? '')
@@ -117,6 +167,26 @@ export default function DailyRecordForm({ today, existingRecord, wellnessTags, b
   const aiSuggestionRef = useRef<HTMLDivElement>(null)
 
   // 頁面載入時，讀取今日已存的 AI 分析結果
+  // 載入時從 localStorage 還原表單暫存
+  useEffect(() => {
+    const saved = localStorage.getItem(`daily_form_${today}`)
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved)
+        if (parsed.chiefComplaint) setChiefComplaint(parsed.chiefComplaint)
+        if (parsed.sleep) setSleep(parsed.sleep)
+        if (parsed.diet) setDiet(parsed.diet)
+        if (parsed.body) setBody(parsed.body)
+        if (parsed.wellness) setWellness(parsed.wellness)
+      } catch { /* 解析失敗忽略 */ }
+    }
+  }, [today])
+
+  // 表單任何欄位改變時，自動暫存到 localStorage
+  useEffect(() => {
+    const data = { chiefComplaint, sleep, diet, body, wellness }
+    localStorage.setItem(`daily_form_${today}`, JSON.stringify(data))
+  }, [today, chiefComplaint, sleep, diet, body, wellness])
   useEffect(() => {
     async function loadExistingAnalysis() {
       const res = await fetch(`/api/ai-analysis?date=${today}`)
@@ -182,6 +252,7 @@ export default function DailyRecordForm({ today, existingRecord, wellnessTags, b
 
       if (res.ok) {
         setSaveStatus('success')
+        localStorage.removeItem(`daily_form_${today}`)
         setFormCollapsed(true)
 
         // 若今日已有 AI 分析，不重複呼叫
@@ -347,9 +418,9 @@ export default function DailyRecordForm({ today, existingRecord, wellnessTags, b
                   ⚠️ {aiSuggestion.practitioner_output.caution_notes}
                 </p>
               )}
-              <p className="text-xs text-gray-400">
-                信心分數：{(aiSuggestion.practitioner_output.confidence_score * 100).toFixed(0)}%
-              </p>
+              {/* 採納回饋按鈕 */}
+              <AdoptionButtons recordDate={today} />
+              
             </div>
           )}
         </div>
