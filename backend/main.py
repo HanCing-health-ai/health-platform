@@ -116,7 +116,7 @@ async def analyze_client(req: AnalysisRequest):
     
     existing = supabase.table("daily_records") \
         .select("id") \
-        .eq("client_id", req.client_id) \
+        .eq("user_id", req.client_id) \
         .gte("created_at", today_start) \
         .execute()
     
