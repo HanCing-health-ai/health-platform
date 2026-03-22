@@ -123,7 +123,7 @@ export default function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="your@email.com"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900
                            focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent
                            placeholder:text-gray-400"
               />
@@ -145,7 +145,7 @@ export default function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder={mode === 'register' ? '至少 6 個字元' : '請輸入密碼'}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900
                            focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent
                            placeholder:text-gray-400"
               />
