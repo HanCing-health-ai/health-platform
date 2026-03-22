@@ -99,18 +99,24 @@ def health_check():
 @app.post("/api/analyze")
 async def analyze_client(req: AnalysisRequest):
 
-    # Step 0：Input Quality Gate
+    
     # Step 0：Input Quality Gate
     print(f"DEBUG primary_complaint: '{req.primary_complaint}' len={len(req.primary_complaint.strip())}")
     print(f"DEBUG discomfort_areas: {req.discomfort_areas}")
     
     if len(req.primary_complaint.strip()) < 15:
         print("DEBUG: blocked by complaint length")
-        raise HTTPException(...)
+        raise HTTPException(
+            status_code=400,
+            detail="請描述得更詳細（至少 15 個字），幫助我們提供更準確的建議"
+        )
     
     if not req.discomfort_areas or len(req.discomfort_areas) == 0:
         print("DEBUG: blocked by discomfort_areas")
-        raise HTTPException(...)
+        raise HTTPException(
+            status_code=400,
+            detail="請至少選擇一個不適部位"
+        )
     
     # Step 0c：24 小時去重
     print(f"DEBUG client_id: {req.client_id}")
@@ -127,7 +133,10 @@ async def analyze_client(req: AnalysisRequest):
     
     if existing.data and len(existing.data) > 0:
         print("DEBUG: blocked by 24hr dedup")
-        raise HTTPException(...)
+        raise HTTPException(
+            status_code=400,
+            detail="今日記錄已存在，如需查看請至歷史記錄頁面"
+        )
     
     # Step 1：Injection Guard 掃描
     scan_result = scan_injection({
