@@ -94,6 +94,19 @@ def health_check():
 @app.post("/api/analyze")
 async def analyze_client(req: AnalysisRequest):
 
+    # Step 0：Input Quality Gate
+    if len(req.primary_complaint.strip()) < 15:
+        raise HTTPException(
+            status_code=400,
+            detail="請描述得更詳細（至少 15 個字），幫助我們提供更準確的建議"
+        )
+    
+    if not req.discomfort_areas or len(req.discomfort_areas) == 0:
+        raise HTTPException(
+            status_code=400,
+            detail="請至少選擇一個不適部位"
+        )
+    
     # Step 1：Injection Guard 掃描
     scan_result = scan_injection({
         "lifestyle_description": req.lifestyle_description,
