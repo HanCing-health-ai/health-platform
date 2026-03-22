@@ -19,6 +19,10 @@ npm-debug.log*
 __pycache__/
 *.py[cod]
 *.egg-info/
+
+docs/roadmap_private.md
+docs/system_prompt_template.md
+docs/rules_v1.md
 .venv/
 venv/
 dist/
