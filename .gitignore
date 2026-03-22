@@ -42,3 +42,7 @@ Thumbs.db
 *.p12
 secrets/
 credentials/
+
+# 私人開發文件
+roadmap_private.md
+*_private.md
