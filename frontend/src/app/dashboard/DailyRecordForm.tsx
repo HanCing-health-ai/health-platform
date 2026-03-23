@@ -378,23 +378,93 @@ if (existingRecord && aiSuggestion) return
 
           {/* 客戶版 Tab */}
           {activeTab === 'client' && (
-            <div className="p-5 bg-green-50 border border-green-200 rounded-2xl">
-              <p className="text-xs text-green-700 font-medium mb-2">
-                {aiSuggestion.client_output.pattern_type}
-              </p>
-              <p className="text-sm text-gray-700 mb-3">
-                {aiSuggestion.client_output.pattern_description}
-              </p>
-              <ul className="space-y-1">
-                {aiSuggestion.client_output.behavior_suggestions.map((s, i) => (
-                  <li key={i} className="text-sm text-gray-600 flex gap-2">
-                    <span className="text-green-500 font-bold">•</span>{s}
-                  </li>
-                ))}
-              </ul>
-              <p className="mt-3 text-xs text-gray-400">
-                以上為行為模式調整參考，不構成任何醫療建議
-              </p>
+            <div className="rounded-2xl overflow-hidden border border-gray-200">
+
+              {/* 風險等級 + Hashtag 列 */}
+              <div className="px-5 py-4 bg-white border-b border-gray-100">
+                <div className="flex items-center gap-3 flex-wrap">
+                  {/* 風險等級 badge */}
+                  <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${
+                    aiSuggestion.practitioner_output.confidence_score >= 0.7
+                      ? 'bg-green-100 text-green-700'
+                      : 'bg-amber-100 text-amber-700'
+                  }`}>
+                    <span className="text-base">
+                      {aiSuggestion.practitioner_output.confidence_score >= 0.7 ? 'A' : 'B'}
+                    </span>
+                    <span>
+                      {aiSuggestion.practitioner_output.confidence_score >= 0.7 ? '一般型' : '複雜代償期'}
+                    </span>
+                  </div>
+                  {/* Hashtag 行為標籤 */}
+                  {aiSuggestion.behavior_tags.lifestyle_tags.map((tag, i) => (
+                    <span key={i} className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
+                      #{tag}
+                    </span>
+                  ))}
+                  {aiSuggestion.behavior_tags.discomfort_areas.map((area, i) => (
+                    <span key={i} className="text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
+                      #{area}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              {/* 身體使用模式 + 主要負荷來源 並排 */}
+              <div className="grid grid-cols-2 gap-px bg-gray-100">
+                <div className="bg-white px-4 py-4">
+                  <p className="text-xs text-gray-400 mb-1">🔷 身體使用模式</p>
+                  <p className="text-sm font-medium text-gray-800">
+                    {aiSuggestion.client_output.pattern_type}
+                  </p>
+                </div>
+                <div className="bg-white px-4 py-4">
+                  <p className="text-xs text-gray-400 mb-1">⚡ 主要負荷來源</p>
+                  <p className="text-sm font-medium text-gray-800">
+                    {aiSuggestion.behavior_tags.primary_load_source}
+                  </p>
+                </div>
+              </div>
+
+              {/* 專家洞察與建議 */}
+              <div className="bg-white px-5 py-4">
+                <p className="text-xs font-semibold text-gray-700 mb-2">💡 專家洞察與建議</p>
+                <p className="text-sm text-gray-700 mb-3 leading-relaxed">
+                  {aiSuggestion.client_output.pattern_description}
+                </p>
+                <ul className="space-y-2">
+                  {aiSuggestion.client_output.behavior_suggestions.map((s, i) => (
+                    <li key={i} className="text-sm text-gray-600 flex gap-2">
+                      <span className="text-green-500 font-bold shrink-0">•</span>{s}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {/* B 類特別提醒 */}
+              {aiSuggestion.practitioner_output.confidence_score < 0.7 && (
+                <div className="bg-amber-50 px-5 py-4 border-t border-amber-100">
+                  <p className="text-xs font-semibold text-amber-700 mb-1">給您的特別提醒</p>
+                  <p className="text-xs text-amber-600 leading-relaxed">
+                    {aiSuggestion.practitioner_output.caution_notes}
+                  </p>
+                </div>
+              )}
+
+              {/* 底部免責聲明 */}
+              <div className="bg-gray-50 px-5 py-3 border-t border-gray-100 flex justify-between items-center">
+                <p className="text-xs text-gray-400">
+                  本報告由 AI 模型生成，不作醫療診斷用途。
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setFormCollapsed(false)}
+                  className="text-xs text-gray-400 hover:text-gray-600"
+                >
+                  返回重新填寫 →
+                </button>
+              </div>
+
             </div>
           )}
 
