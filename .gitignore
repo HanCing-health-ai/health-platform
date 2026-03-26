@@ -46,3 +46,7 @@ credentials/
 # 私人開發文件
 roadmap_private.md
 *_private.md
+
+# 加入 .gitignore
+docs/roadmap_private.md
+docs/system-prompt-v1.md
