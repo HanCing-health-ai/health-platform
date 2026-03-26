@@ -114,3 +114,40 @@
 1. 這個模組需要哪些邊界條件（edge case）需要處理？
 2. 這個功能是否觸碰到「非醫療器材」的法規紅線？
 3. 是否需要同步更新 CLAUDE.md 的技術待辦清單？
+
+---
+
+# ConditionAI 專案規範
+## 技術框架
+- Frontend: Next.js 14 + TypeScript + Tailwind CSS (Vercel)
+- Backend: Python FastAPI (VPS 部署)
+- Database: Supabase (project ID: xtflhovbdicvkpacnrmj)
+- AI: Claude API claude-sonnet-4-20250514, Structured Output
+- Workflow: n8n (VPS 自架)
+- Git: HanCing-health-ai 組織，主分支 main
+
+## 目錄結構重點
+- /src/app → Next.js App Router 頁面
+- /src/app/actions.ts → Server Actions（Antigravity 主要作業區）
+- /src/components → UI 元件
+- /docs/ → 規格文件（部分已加入 .gitignore）
+- /.claude/skills/ → 自訂 Skills
+- /.claude/commands/ → Slash Commands
+
+## 合規紅線（最高優先級）
+client_output 任何欄位絕對禁止出現：
+診斷、確診、病因、病症、症狀、疾病、病變、治療、療效、醫治、
+處方、藥物、痊癒、康復、治癒、風險、併發症、惡化、緊急、危險
+
+## 嚴格禁止
+- 修改 System Prompt（只有 Claude 策略端輸出新版本才能更新）
+- 刪除或修改 RLS 設定
+- 將任何金鑰寫入程式碼
+- 修改 .gitignore 中已列出的檔案
+
+## gstack 指令（已安裝）
+- /office-hours：版本開始前確認方向
+- /cso：VPS 上線前資安掃描
+- /qa + /browse：功能測試 + RWD 驗證
+- /guard：正式環境作業時開啟
+- /investigate：除錯（未調查不修復）
