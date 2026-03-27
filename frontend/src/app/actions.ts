@@ -9,6 +9,27 @@ const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
+// 第一道防線：出口防護違規字庫 (V1 收尾交接說明要求不得更改)
+const FORBIDDEN_WORDS = [
+  "診斷", "確診", "病因", "病症", "症狀", "疾病", "病變",
+  "治療", "療效", "醫治", "處方", "藥物", "痊癒", "康復",
+  "治癒", "風險", "併發症", "惡化", "緊急", "危險"
+];
+
+async function validateOutput(clientOutput: Record<string, unknown>, responseId: string, clientId: string): Promise<void> {
+  const textToCheck = JSON.stringify(clientOutput, null, 0);
+  const violations = FORBIDDEN_WORDS.filter(word => textToCheck.includes(word));
+  if (violations.length > 0) {
+    // 寫入 injection_attempts 資料表記錄
+    await supabase.from('injection_attempts').insert([{
+      response_id: responseId,
+      client_id: clientId,
+      violations: violations
+    }]);
+    throw new Error(`語言合規違規：${violations.join('、')}`);
+  }
+}
+
 export async function submitQuestionnaire(formData: {
   name: string;
   phone: string;
@@ -92,7 +113,8 @@ export async function submitQuestionnaire(formData: {
           studio_id: studioId,
           name: formData.name,
           phone: formData.phone,
-          occupation_type: formData.occupation_type
+          occupation_type: formData.occupation_type,
+          phone_verified: true
         }])
         .select('id')
         .single();
@@ -101,6 +123,8 @@ export async function submitQuestionnaire(formData: {
       clientId = newClient.id;
     } else {
       clientId = client.id;
+      // Step 2 Identity Defense: Update existing unverified clients upon successful OTP submission
+      await supabase.from('clients').update({ phone_verified: true }).eq('id', clientId);
     }
 
     // 2. Write response
@@ -139,6 +163,18 @@ export async function submitQuestionnaire(formData: {
         suggestion_reason: "觸發預設風險關鍵字或涉及胸口/頭部等敏感部位，為安全計進行自動阻斷。",
         confidence_score: 1.0
       }]);
+      
+      // Step 4 Automation: Trigger n8n Webhook for C-Class Line Notify
+      if (process.env.N8N_WEBHOOK_URL) {
+        await triggerN8nWebhook(process.env.N8N_WEBHOOK_URL, {
+          event: "client_intake_v1",
+          risk_class: "C",
+          pattern_type: "風險阻斷",
+          primary_load_source: "醫療風險檢測觸發",
+          analysis_master: "此客戶觸發風險警示 (包含關鍵字或敏感部位)，建議優先諮詢醫療人員。"
+        });
+      }
+
       return { success: true, responseId: responseData.id };
     }
 
@@ -240,6 +276,9 @@ export async function submitQuestionnaire(formData: {
             throw new Error("AI 分析格式錯誤");
           }
 
+          // Step 3 Exit Defense: Language Compliance Scan before writing to DB
+          await validateOutput(parsedResult, responseData.id, clientId);
+
           const { error: insertErr } = await supabase.from('insight_reports').insert([{
             response_id: responseData.id,
             client_id: clientId,
@@ -255,6 +294,18 @@ export async function submitQuestionnaire(formData: {
           }]);
           
           if (insertErr) throw insertErr;
+
+          // Step 4 Automation: Trigger n8n Webhook for A/B-Class Line Notify
+          if (process.env.N8N_WEBHOOK_URL) {
+            await triggerN8nWebhook(process.env.N8N_WEBHOOK_URL, {
+              event: "client_intake_v1",
+              risk_class: parsedResult.risk_class || triageClass,
+              pattern_type: parsedResult.behavior_pattern_type || parsedResult.pattern_type || "未分類模式",
+              primary_load_source: parsedResult.primary_load_source || "日常累積",
+              analysis_master: parsedResult.analysis_master
+            });
+          }
+
         } else {
           throw new Error("Claude API 呼叫失敗");
         }
@@ -292,5 +343,37 @@ export async function getInsightReport(responseId: string) {
   } catch (error: any) {
     console.error("getInsightReport exception:", error);
     return { success: false, error: error.message };
+  }
+}
+
+// === Webhook Utility (Step 1 Entry Defense) ===
+/**
+ * 觸發 n8n Webhook 專用函式，自動附加安全 Token
+ * @param webhookUrl 目標 n8n Webhook URL
+ * @param payload 要傳送的 JSON 資料
+ * @returns { success: boolean, error?: string }
+ */
+export async function triggerN8nWebhook(webhookUrl: string, payload: any) {
+  try {
+    const secret = process.env.WEBHOOK_SECRET;
+    if (!secret) throw new Error("缺少 WEBHOOK_SECRET 環境變數");
+
+    const response = await fetch(webhookUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-ConditionAI-Token": secret
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+      throw new Error(`Webhook 請求失敗，狀態碼: ${response.status}`);
+    }
+
+    return { success: true };
+  } catch (err: any) {
+    console.error("triggerN8nWebhook 執行失敗:", err);
+    return { success: false, error: err.message };
   }
 }
