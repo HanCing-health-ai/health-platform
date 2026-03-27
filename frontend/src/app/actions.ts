@@ -57,10 +57,10 @@ export async function submitQuestionnaire(formData: {
 
     // C-Class Check (Critical Red Flags)
     const allText = `${formData.lifestyle_description} ${formData.special_notes} ${formData.primary_complaint}`;
-    triageKeywords.group_1_critical.forEach(kw => {
+    triageKeywords.group_1_critical.forEach((kw: string) => {
       if (allText.includes(kw)) triggeredKeywords.push(kw);
     });
-    triageKeywords.group_3_inquiry.forEach(kw => {
+    triageKeywords.group_3_inquiry.forEach((kw: string) => {
       if (allText.includes(kw)) triggeredKeywords.push(kw);
     });
 
