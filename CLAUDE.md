@@ -53,6 +53,17 @@
 
 ---
 
+# V1.5 進度追蹤（最後更新：2026-03-28）
+
+## A組 ✅
+- 師傅登入 / 角色分流 / is_test 旗標
+
+## B組
+- Wave 1 ✅：knowledge_base / tag_library / credits 三表建立
+- Wave 2 ✅：triage_keywords.json + submitGuard.ts + actions.ts TypeScript 修正
+
+---
+
 # 已完成功能
 - 登入/註冊流程（/login + /auth/callback）
 - 每日記錄表單（DailyRecordForm.tsx）含 AI 分析串接
