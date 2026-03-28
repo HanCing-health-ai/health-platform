@@ -2,252 +2,187 @@
   "name": "Review Decision Pipeline",
   "nodes": [
     {
-      "parameters": {
-        "httpMethod": "GET",
-        "path": "review-decision",
-        "options": {}
-      },
+      "parameters": {"httpMethod": "GET", "path": "review-decision"},
       "name": "Webhook 接收",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1,
-      "position": [
-        0,
-        0
-      ]
+      "position": [0, 0]
     },
     {
       "parameters": {
         "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "strict"
-          },
-          "conditions": [
-            {
-              "id": "e2ba7e16-bbdc-472e-bea1-64d8a27d21ca",
-              "leftValue": "={{ $json.query.review_note.length }}",
-              "rightValue": 10,
-              "operator": {
-                "type": "number",
-                "operation": "gte"
-              }
-            }
-          ],
-          "combinator": "and"
-        },
-        "options": {}
+          "string": [
+            {"value1": "={{$json.query.review_note.length}}", "operation": "largerEqual", "value2": 10}
+          ]
+        }
       },
       "name": "驗證決策",
       "type": "n8n-nodes-base.if",
-      "typeVersion": 3,
-      "position": [
-        220,
-        0
-      ]
+      "typeVersion": 1,
+      "position": [200, 0]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"error\": \"請填寫至少 10 字的決策理由\"}",
+        "options": {"responseCode": 400}
+      },
+      "name": "驗證決策失敗回應",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [200, 200]
     },
     {
       "parameters": {
         "operation": "update",
-        "tableId": "knowledge_base",
-        "matchColumns": "id",
-        "fieldsUi": {
-          "fieldValues": [
-            {
-              "fieldId": "id",
-              "fieldValue": "={{ $json.query.knowledge_id }}"
-            },
-            {
-              "fieldId": "status",
-              "fieldValue": "={{ $json.query.decision === 'approve' ? 'active' : ($json.query.decision === 'reject' ? 'draft' : 'partial') }}"
-            },
-            {
-              "fieldId": "review_note",
-              "fieldValue": "={{ $json.query.review_note }}"
-            },
-            {
-              "fieldId": "last_reviewed_at",
-              "fieldValue": "={{ new Date().toISOString() }}"
-            }
-          ]
+        "table": "knowledge_base",
+        "updateKey": "id",
+        "fields": {
+          "status": "={{$json.query.decision === 'approve' ? 'active' : ($json.query.decision === 'reject' ? 'draft' : 'partial')}}",
+          "review_note": "={{$json.query.review_note}}",
+          "last_reviewed_at": "={{new Date().toISOString()}}"
         }
       },
       "name": "更新 knowledge_base",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
-      "position": [
-        440,
-        0
-      ],
-      "credentials": {
-        "supabaseApi": {
-          "id": "supabase-credentials",
-          "name": "Supabase account"
+      "position": [400, 0]
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "table": "knowledge_base",
+        "returnAll": false,
+        "matchColumns": "id",
+        "matchValue": "={{$node['Webhook 接收'].json.query.knowledge_id}}"
+      },
+      "name": "取得 knowledge_base 紀錄",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [600, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {"value1": "={{$node['Webhook 接收'].json.query.decision}}", "operation": "equal", "value2": "approve"},
+            {"value1": "={{$node['Webhook 接收'].json.query.proposed_tag}}", "operation": "isNotEmpty"}
+          ]
         }
-      }
+      },
+      "name": "檢查是否寫入 tag_library",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [800, 0]
     },
     {
       "parameters": {
         "operation": "update",
-        "tableId": "tag_library",
-        "matchColumns": "tag_name",
-        "fieldsUi": {
-          "fieldValues": [
-            {
-              "fieldId": "tag_name",
-              "fieldValue": "={{ $json.query.proposed_tag }}"
-            },
-            {
-              "fieldId": "status",
-              "fieldValue": "active"
-            },
-            {
-              "fieldId": "approved_at",
-              "fieldValue": "={{ new Date().toISOString() }}"
-            }
-          ]
+        "table": "tag_library",
+        "updateKey": "tag_name",
+        "fields": {
+          "status": "active",
+          "approved_at": "={{new Date().toISOString()}}"
         }
       },
       "name": "處理 tag_library",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
-      "position": [
-        660,
-        0
-      ],
-      "credentials": {
-        "supabaseApi": {
-          "id": "supabase-credentials",
-          "name": "Supabase account"
+      "position": [1000, -100]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {"value1": "={{$node['Webhook 接收'].json.query.decision}}", "operation": "notEqual", "value2": "reject"}
+          ]
         }
-      }
+      },
+      "name": "檢查是否給予 credits",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1200, 0]
     },
     {
       "parameters": {
         "operation": "insert",
-        "tableId": "credits",
-        "fieldsUi": {
-          "fieldValues": [
-            {
-              "fieldId": "practitioner_id",
-              "fieldValue": "={{ $json.query.reviewer_id }}"
-            },
-            {
-              "fieldId": "amount",
-              "fieldValue": "={{ $json.query.decision === 'approve' ? 10 : ($json.query.decision === 'partial' ? 10 : 0) }}"
-            },
-            {
-              "fieldId": "reason",
-              "fieldValue": "knowledge_contributed"
-            },
-            {
-              "fieldId": "knowledge_id",
-              "fieldValue": "={{ $json.query.knowledge_id }}"
-            }
-          ]
+        "table": "credits",
+        "fields": {
+          "practitioner_id": "={{$node['取得 knowledge_base 紀錄'].json.contributor_id}}",
+          "amount": 10,
+          "reason": "knowledge_contributed",
+          "knowledge_id": "={{$node['Webhook 接收'].json.query.knowledge_id}}"
         }
       },
       "name": "更新 credits",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
-      "position": [
-        880,
-        0
-      ],
-      "credentials": {
-        "supabaseApi": {
-          "id": "supabase-credentials",
-          "name": "Supabase account"
-        }
-      }
+      "position": [1400, -100]
     },
     {
       "parameters": {
         "url": "https://notify-api.line.me/api/notify",
         "method": "POST",
         "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Authorization",
-              "value": "Bearer {LINE_TOKEN}"
-            }
-          ]
-        },
+        "headerParameters": {"parameters": [{"name": "Authorization", "value": "Bearer {LINE_TOKEN}"}]},
         "sendBody": true,
         "bodyParameters": {
           "parameters": [
             {
               "name": "message",
-              "value": "🌟 知識貢獲回饋\n您提交的「{{ $json.title || '知識條目' }}」已{{ $json.query.decision === 'approve' ? 'approve' : ($json.query.decision === 'partial' ? 'partial' : 'reject') }}\n獲得點數：+{{ $json.query.decision === 'reject' ? '0' : '10' }} 點\n感謝您的貢獻，每一筆知識都讓系統更智慧！"
+              "value": "={{'🌟 知識貢獻回饋\\n您提交的「' + ($node['取得 knowledge_base 紀錄'].json.title || '知識條目') + '」' + ($node['Webhook 接收'].json.query.decision === 'approve' ? '已入庫' : ($node['Webhook 接收'].json.query.decision === 'partial' ? '部分入庫' : '未通過')) + '\\n獲得點數：+' + ($node['Webhook 接收'].json.query.decision === 'reject' ? '0' : '10') + ' 點（累計 {total} 點）\\n感謝您的貢獻，每一筆知識都讓系統更智慧！'}}"
             }
           ]
-        },
-        "options": {}
+        }
       },
       "name": "LINE 通知師傅",
       "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
-      "position": [
-        1100,
-        0
-      ]
+      "typeVersion": 1,
+      "position": [1600, 0]
     }
   ],
   "connections": {
     "Webhook 接收": {
       "main": [
-        [
-          {
-            "node": "驗證決策",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        [{"node": "驗證決策", "type": "main", "index": 0}]
       ]
     },
     "驗證決策": {
       "main": [
-        [
-          {
-            "node": "更新 knowledge_base",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        [{"node": "更新 knowledge_base", "type": "main", "index": 0}],
+        [{"node": "驗證決策失敗回應", "type": "main", "index": 0}]
       ]
     },
     "更新 knowledge_base": {
       "main": [
-        [
-          {
-            "node": "處理 tag_library",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        [{"node": "取得 knowledge_base 紀錄", "type": "main", "index": 0}]
+      ]
+    },
+    "取得 knowledge_base 紀錄": {
+      "main": [
+        [{"node": "檢查是否寫入 tag_library", "type": "main", "index": 0}]
+      ]
+    },
+    "檢查是否寫入 tag_library": {
+      "main": [
+        [{"node": "處理 tag_library", "type": "main", "index": 0}],
+        [{"node": "檢查是否給予 credits", "type": "main", "index": 0}]
       ]
     },
     "處理 tag_library": {
       "main": [
-        [
-          {
-            "node": "更新 credits",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        [{"node": "檢查是否給予 credits", "type": "main", "index": 0}]
+      ]
+    },
+    "檢查是否給予 credits": {
+      "main": [
+        [{"node": "更新 credits", "type": "main", "index": 0}],
+        [{"node": "LINE 通知師傅", "type": "main", "index": 0}]
       ]
     },
     "更新 credits": {
       "main": [
-        [
-          {
-            "node": "LINE 通知師傅",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        [{"node": "LINE 通知師傅", "type": "main", "index": 0}]
       ]
     }
   }
