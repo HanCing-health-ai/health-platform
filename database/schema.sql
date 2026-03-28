@@ -1,304 +1,205 @@
--- ============================================================
--- 跨技術健康調理資料整合與決策支援平台
--- Supabase PostgreSQL Schema
--- ============================================================
--- 注意：本系統為行為模式導向的健康管理工具，非醫療器材。
--- 所有欄位設計不得涉及診斷、治療、病因、處方相關資料。
--- ============================================================
+-- 身體使用模式分析系統 Database Schema V3.7 (PostgreSQL for Supabase)
 
--- 啟用 UUID 擴充功能
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-
--- ============================================================
--- 標籤資料表（Tag Tables）— 系統預設參考資料，不含個人健康資料
--- ============================================================
-
--- 調理活動標籤（wellness_logs 使用）
-CREATE TABLE wellness_activity_tags (
-    id          uuid        PRIMARY KEY DEFAULT uuid_generate_v4(),
-    name        text        NOT NULL UNIQUE,      -- 標籤名稱，例如：傳統整復
-    category    text        NOT NULL,             -- 分類名稱，例如：整復推拿類
-    is_custom   boolean     NOT NULL DEFAULT false, -- false = 系統預設；true = 人工審核新增
-    created_at  timestamptz NOT NULL DEFAULT now()
+-- 1. studios (工作室主體)
+CREATE TABLE public.studios (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name VARCHAR(100) NOT NULL,
+  owner_name VARCHAR(100),
+  contact_phone VARCHAR(20),
+  is_active BOOLEAN DEFAULT true,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- 身體部位標籤（body_sensation_logs 使用）
-CREATE TABLE body_area_tags (
-    id          uuid        PRIMARY KEY DEFAULT uuid_generate_v4(),
-    name        text        NOT NULL UNIQUE,      -- 部位名稱，例如：肩膀
-    is_custom   boolean     NOT NULL DEFAULT false,
-    created_at  timestamptz NOT NULL DEFAULT now()
+-- 2. profiles (師傅資料)
+CREATE TABLE public.profiles (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  studio_id UUID REFERENCES public.studios(id) ON DELETE CASCADE,
+  name VARCHAR(100) NOT NULL,
+  specialty_tags TEXT[],       -- 專長標籤
+  is_active BOOLEAN DEFAULT true,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- 身體感受類型標籤（body_sensation_logs 使用）
-CREATE TABLE sensation_type_tags (
-    id          uuid        PRIMARY KEY DEFAULT uuid_generate_v4(),
-    name        text        NOT NULL UNIQUE,      -- 感受名稱，例如：緊繃
-    is_custom   boolean     NOT NULL DEFAULT false,
-    created_at  timestamptz NOT NULL DEFAULT now()
+-- 3. clients (客戶基本資料)
+CREATE TABLE public.clients (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  studio_id UUID REFERENCES public.studios(id) ON DELETE CASCADE,
+  name VARCHAR(100) NOT NULL,
+  phone VARCHAR(20) UNIQUE,
+  birth_year INTEGER,
+  occupation_type VARCHAR(100),
+  last_followup_sent TIMESTAMP WITH TIME ZONE, -- 儲存最後一次發送回訪的時間 (V4.0新增)
+  is_test BOOLEAN DEFAULT false,            -- 測資隔離牆 (V1.5新增)
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- ============================================================
--- 使用者資料表
--- ============================================================
-
--- 使用者基本資料（對應 Supabase Auth auth.users）
--- 遵循 PDPA：不得儲存真實姓名 + 健康資料的組合
-CREATE TABLE profiles (
-    id           uuid        PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-    display_name text,                            -- 顯示名稱（非真實姓名）
-    timezone     text        NOT NULL DEFAULT 'Asia/Taipei',
-    created_at   timestamptz NOT NULL DEFAULT now()
+-- 4. questionnaire_responses (問卷收集資料，每次問卷一筆)
+CREATE TABLE public.questionnaire_responses (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  client_id UUID REFERENCES public.clients(id) ON DELETE CASCADE,
+  studio_id UUID REFERENCES public.studios(id) ON DELETE CASCADE,
+  discomfort_areas TEXT[] NOT NULL,         -- 勾選的不適部位
+  lifestyle_description TEXT,               -- 生活習慣描述
+  primary_complaint TEXT,                   -- 主訴
+  duration_type VARCHAR(50),                -- 持續時間 (例如: 超過半年)
+  special_notes TEXT,                       -- 特殊備註/舊傷
+  is_on_medication BOOLEAN DEFAULT false,   -- 是否正在用藥
+  is_test BOOLEAN DEFAULT false,            -- 測資隔離牆 (V1.5新增)
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- ============================================================
--- 每日記錄主表
--- ============================================================
-
--- 每日健康調理記錄（主表，每位使用者每天只有一筆）
-CREATE TABLE daily_records (
-    id                uuid        PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id           uuid        NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-    record_date       date        NOT NULL,
-    chief_complaint   text,                      -- 使用者今日最困擾的事（選填，上限 200 字）
-    created_at        timestamptz NOT NULL DEFAULT now(),
-    updated_at        timestamptz NOT NULL DEFAULT now(),
-    UNIQUE (user_id, record_date)                -- 每人每日唯一
+-- 5. triage_results (分流結果計算)
+CREATE TABLE public.triage_results (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  response_id UUID REFERENCES public.questionnaire_responses(id) ON DELETE CASCADE,
+  triage_class VARCHAR(1) CHECK (triage_class IN ('A', 'B', 'C')),
+  triggered_keywords TEXT[],                -- 觸發的 C 類關鍵字
+  triage_reason TEXT,                       -- 觸發原因說明
+  is_blocked BOOLEAN DEFAULT false,         -- 是否被阻斷 (C類為 true)
+  is_test BOOLEAN DEFAULT false,            -- 測資隔離牆 (V1.5新增)
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- ============================================================
--- 細項記錄子表（皆關聯 daily_records）
--- ============================================================
-
--- 睡眠記錄
-CREATE TABLE sleep_logs (
-    id              uuid        PRIMARY KEY DEFAULT uuid_generate_v4(),
-    record_id       uuid        NOT NULL REFERENCES daily_records(id) ON DELETE CASCADE,
-    sleep_time      time,                        -- 入睡時間
-    wake_time       time,                        -- 起床時間
-    duration_hours  numeric(4,2),                -- 總睡眠時數（自動計算或手動填寫）
-    quality_score   smallint    CHECK (quality_score BETWEEN 1 AND 5), -- 主觀品質 1-5
-    notes           text,                        -- 補充備註
-    created_at      timestamptz NOT NULL DEFAULT now()
+-- 6. insight_reports (LLM 雙向洞察與標籤)
+CREATE TABLE public.insight_reports (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  response_id UUID REFERENCES public.questionnaire_responses(id) ON DELETE CASCADE,
+  client_id UUID REFERENCES public.clients(id) ON DELETE CASCADE,
+  risk_class VARCHAR(1) CHECK (risk_class IN ('A', 'B', 'C')),
+  is_blocked BOOLEAN DEFAULT false,
+  analysis_master TEXT,                     -- 師傅版分析
+  analysis_client TEXT,                     -- 客戶版分析
+  pattern_type VARCHAR(100),                -- 例如: 久坐累積型
+  primary_load_source VARCHAR(100),         -- 主要負荷來源
+  lifestyle_tags TEXT[],                    -- 行為模式標籤 (behavior_tags)
+  confidence_score NUMERIC CHECK (confidence_score >= 0 AND confidence_score <= 1),
+  suggestion_reason TEXT,                   -- 可解釋性建議理由
+  generated_by VARCHAR(50) DEFAULT 'claude-3.5-sonnet', -- 資料來源版本
+  is_test BOOLEAN DEFAULT false,            -- 測資隔離牆 (V1.5新增)
+  metadata JSONB DEFAULT '{}'::jsonb,       -- 知識庫引用與附加資訊追蹤 (V1.5 B組新增)
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- 飲食記錄（一天可有多筆，對應不同餐次）
-CREATE TABLE diet_logs (
-    id              uuid        PRIMARY KEY DEFAULT uuid_generate_v4(),
-    record_id       uuid        NOT NULL REFERENCES daily_records(id) ON DELETE CASCADE,
-    meal_type       text        CHECK (meal_type IN ('breakfast', 'lunch', 'dinner', 'snack')),
-    description     text,                        -- 飲食內容描述
-    water_intake_ml integer,                     -- 飲水量（ml）
-    notes           text,
-    created_at      timestamptz NOT NULL DEFAULT now()
+-- 7. follow_up_responses (定期回訪問卷，V1 埋入以支撐縱向資料)
+CREATE TABLE public.follow_up_responses (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  client_id UUID REFERENCES public.clients(id) ON DELETE CASCADE,
+  original_response_id UUID REFERENCES public.questionnaire_responses(id) ON DELETE SET NULL,
+  improvement_score INTEGER CHECK (improvement_score BETWEEN 1 AND 5), -- 改善程度
+  current_status TEXT,                      -- 目前狀況
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- 身體感受記錄（量化指標 + 部位/感受標籤 + 自由文字）
-CREATE TABLE body_sensation_logs (
-    id              uuid        PRIMARY KEY DEFAULT uuid_generate_v4(),
-    record_id       uuid        NOT NULL REFERENCES daily_records(id) ON DELETE CASCADE,
-    energy_level    smallint    CHECK (energy_level BETWEEN 1 AND 5),  -- 精力水準
-    stress_level    smallint    CHECK (stress_level BETWEEN 1 AND 5),  -- 壓力感受
-    mood_score      smallint    CHECK (mood_score BETWEEN 1 AND 5),    -- 心情
-    custom_note     text,                        -- 使用者自述（非診斷性文字）
-    created_at      timestamptz NOT NULL DEFAULT now()
+-- RLS (Row Level Security) 政策 (範例)
+ALTER TABLE public.studios ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.clients ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.questionnaire_responses ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.triage_results ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.insight_reports ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.follow_up_responses ENABLE ROW LEVEL SECURITY;
+
+-- 允許已驗證的使用者 (工作室帳號) 讀取/操作自己工作室的資料
+-- 允許已驗證的使用者 (工作室帳號) 讀取/操作自己工作室的資料
+CREATE POLICY "Studios can view own data" ON public.studios FOR SELECT USING (id = auth.uid());
+-- 其他相關表亦將依照 studio_id 進行過濾 (需將 auth.uid() 對應到 profiles 或 studios)
+
+-- 匿名送出表單預設開放 INSERT (但由 n8n 或 Next.js 進行驗證寫入)
+-- Layer 4 防護要求：確保跨工作室資料不能越權存取
+
+-- 8. injection_attempts (安全攔截紀錄 - V1 出口防線)
+CREATE TABLE public.injection_attempts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  response_id UUID REFERENCES public.questionnaire_responses(id) ON DELETE CASCADE,
+  client_id UUID REFERENCES public.clients(id) ON DELETE CASCADE,
+  violations TEXT[] NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- 調理項目記錄（每筆為一次調理活動，可附多個標籤）
-CREATE TABLE wellness_logs (
-    id              uuid        PRIMARY KEY DEFAULT uuid_generate_v4(),
-    record_id       uuid        NOT NULL REFERENCES daily_records(id) ON DELETE CASCADE,
-    duration_minutes integer,                    -- 執行時間（分鐘）
-    custom_note     text,                        -- 使用者自述補充
-    created_at      timestamptz NOT NULL DEFAULT now()
+-- ==========================================
+-- V1.5 B組 知識管理系統 (Wave 1)
+-- ==========================================
+
+-- 9. knowledge_base (知識庫)
+CREATE TABLE public.knowledge_base (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  category TEXT NOT NULL CHECK (category IN ('穴位', '配穴組合', '調理邏輯', '行為模式', '其他')),
+  title TEXT NOT NULL,
+  pattern_tags TEXT[] DEFAULT '{}',
+  applicable_techniques TEXT[] DEFAULT '{}',
+  content TEXT NOT NULL,
+  combo TEXT,
+  contraindications TEXT[] DEFAULT '{}',
+  caution_levels JSONB DEFAULT '{"absolute": [], "careful": [], "inform": []}',
+  level INTEGER NOT NULL CHECK (level IN (1, 2, 3)),
+  source TEXT,
+  source_credibility TEXT CHECK (source_credibility IN ('high', 'medium', 'low')),
+  status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'pending_review', 'active', 'suspended')),
+  conflict_ids UUID[] DEFAULT '{}',
+  last_reviewed_at TIMESTAMPTZ,
+  review_note TEXT,
+  contributor_id UUID REFERENCES public.profiles(id),
+  version INTEGER NOT NULL DEFAULT 1,
+  previous_content TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- ============================================================
--- 標籤關聯表（Junction Tables）
--- ============================================================
+-- GIN 索引（加速標籤查詢）
+CREATE INDEX idx_knowledge_base_pattern_tags ON public.knowledge_base USING GIN (pattern_tags);
+CREATE INDEX idx_knowledge_base_applicable_techniques ON public.knowledge_base USING GIN (applicable_techniques);
+CREATE INDEX idx_knowledge_base_contraindications ON public.knowledge_base USING GIN (contraindications);
+CREATE INDEX idx_knowledge_base_status ON public.knowledge_base (status);
 
--- wellness_logs <-> wellness_activity_tags（多對多）
-CREATE TABLE wellness_log_tags (
-    wellness_log_id uuid NOT NULL REFERENCES wellness_logs(id) ON DELETE CASCADE,
-    tag_id          uuid NOT NULL REFERENCES wellness_activity_tags(id) ON DELETE CASCADE,
-    PRIMARY KEY (wellness_log_id, tag_id)
+-- RLS
+ALTER TABLE public.knowledge_base ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "studio_isolation" ON public.knowledge_base USING (true); -- V1.5 暫時開放，V2 加 studio_id 隔離
+
+
+-- 10. tag_library (標籤庫)
+CREATE TABLE public.tag_library (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tag_name TEXT NOT NULL UNIQUE,
+  description TEXT,
+  status TEXT NOT NULL DEFAULT 'proposed' CHECK (status IN ('proposed', 'active', 'deprecated')),
+  proposed_by TEXT NOT NULL DEFAULT 'system',
+  approved_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- body_sensation_logs <-> body_area_tags（多對多）
-CREATE TABLE body_sensation_area_tags (
-    sensation_log_id uuid NOT NULL REFERENCES body_sensation_logs(id) ON DELETE CASCADE,
-    tag_id           uuid NOT NULL REFERENCES body_area_tags(id) ON DELETE CASCADE,
-    PRIMARY KEY (sensation_log_id, tag_id)
+-- 索引
+CREATE INDEX idx_tag_library_status ON public.tag_library (status);
+CREATE INDEX idx_tag_library_tag_name ON public.tag_library (tag_name);
+
+-- RLS
+ALTER TABLE public.tag_library ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "read_active_tags" ON public.tag_library FOR SELECT USING (status = 'active');
+CREATE POLICY "service_role_all" ON public.tag_library USING (auth.role() = 'service_role');
+
+-- 預設種入初始標籤（來自既有 behavior_tags 資料）
+INSERT INTO public.tag_library (tag_name, description, status, proposed_by, approved_at) VALUES
+('久坐累積型', '長時間坐姿造成腰背負擔累積', 'active', 'system', NOW()),
+('前傾姿勢型', '頭頸前傾、圓肩的姿勢模式', 'active', 'system', NOW()),
+('站立勞損型', '長時間站立造成下肢與腰部累積負擔', 'active', 'system', NOW()),
+('睡眠壓力型', '睡眠品質差或壓力影響身體狀態', 'active', 'system', NOW()),
+('3C過度使用型', '手機電腦使用過多造成頸肩緊繃', 'active', 'system', NOW());
+
+
+-- 11. credits (點數系統)
+CREATE TABLE public.credits (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  practitioner_id UUID NOT NULL REFERENCES public.profiles(id),
+  amount INTEGER NOT NULL,
+  reason TEXT NOT NULL CHECK (reason IN ('knowledge_contributed', 'knowledge_approved', 'knowledge_cited', 'followup_completed', 'redeemed', 'bonus')),
+  knowledge_id UUID REFERENCES public.knowledge_base(id),
+  created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- body_sensation_logs <-> sensation_type_tags（多對多）
-CREATE TABLE body_sensation_type_tags (
-    sensation_log_id uuid NOT NULL REFERENCES body_sensation_logs(id) ON DELETE CASCADE,
-    tag_id           uuid NOT NULL REFERENCES sensation_type_tags(id) ON DELETE CASCADE,
-    PRIMARY KEY (sensation_log_id, tag_id)
-);
+-- 索引
+CREATE INDEX idx_credits_practitioner_id ON public.credits (practitioner_id);
+CREATE INDEX idx_credits_created_at ON public.credits (created_at);
 
--- ============================================================
--- AI 分析結果（由 n8n + Ollama 產生，非醫療診斷）
--- ============================================================
-
-CREATE TABLE ai_analysis_results (
-    id              uuid        PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id         uuid        NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-    analysis_date   date        NOT NULL,        -- 分析基準日
-    summary         text        NOT NULL,        -- 行為模式摘要（非診斷內容）
-    model_version   text,                        -- Ollama 模型名稱，例如：llama3.2
-    generated_at    timestamptz NOT NULL DEFAULT now()
-);
-
--- ============================================================
--- 觸發器：自動更新 updated_at
--- ============================================================
-
-CREATE OR REPLACE FUNCTION update_updated_at_column()
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.updated_at = now();
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER set_updated_at
-    BEFORE UPDATE ON daily_records
-    FOR EACH ROW
-    EXECUTE FUNCTION update_updated_at_column();
-
--- ============================================================
--- 觸發器：新使用者自動建立 profile
--- ============================================================
-
-CREATE OR REPLACE FUNCTION handle_new_user()
-RETURNS TRIGGER AS $$
-BEGIN
-    INSERT INTO public.profiles (id)
-    VALUES (NEW.id);
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
-CREATE TRIGGER on_auth_user_created
-    AFTER INSERT ON auth.users
-    FOR EACH ROW
-    EXECUTE FUNCTION handle_new_user();
-
--- ============================================================
--- Row Level Security（RLS）— 確保使用者只能存取自己的資料
--- ============================================================
-
--- 啟用 RLS
-ALTER TABLE profiles                ENABLE ROW LEVEL SECURITY;
-ALTER TABLE daily_records           ENABLE ROW LEVEL SECURITY;
-ALTER TABLE sleep_logs              ENABLE ROW LEVEL SECURITY;
-ALTER TABLE diet_logs               ENABLE ROW LEVEL SECURITY;
-ALTER TABLE body_sensation_logs     ENABLE ROW LEVEL SECURITY;
-ALTER TABLE body_sensation_area_tags ENABLE ROW LEVEL SECURITY;
-ALTER TABLE body_sensation_type_tags ENABLE ROW LEVEL SECURITY;
-ALTER TABLE wellness_logs           ENABLE ROW LEVEL SECURITY;
-ALTER TABLE wellness_log_tags       ENABLE ROW LEVEL SECURITY;
-ALTER TABLE ai_analysis_results     ENABLE ROW LEVEL SECURITY;
--- 標籤表：所有認證使用者可讀，僅限系統/管理者可寫
-ALTER TABLE wellness_activity_tags  ENABLE ROW LEVEL SECURITY;
-ALTER TABLE body_area_tags          ENABLE ROW LEVEL SECURITY;
-ALTER TABLE sensation_type_tags     ENABLE ROW LEVEL SECURITY;
-
--- ---- profiles ----
-CREATE POLICY "使用者可讀取自己的 profile"
-    ON profiles FOR SELECT USING (id = auth.uid());
-CREATE POLICY "使用者可新增自己的 profile"
-    ON profiles FOR INSERT WITH CHECK (id = auth.uid());
-CREATE POLICY "使用者可更新自己的 profile"
-    ON profiles FOR UPDATE USING (id = auth.uid());
-
--- ---- daily_records ----
-CREATE POLICY "使用者可讀取自己的每日記錄"
-    ON daily_records FOR SELECT USING (user_id = auth.uid());
-CREATE POLICY "使用者可新增自己的每日記錄"
-    ON daily_records FOR INSERT WITH CHECK (user_id = auth.uid());
-CREATE POLICY "使用者可更新自己的每日記錄"
-    ON daily_records FOR UPDATE USING (user_id = auth.uid());
-CREATE POLICY "使用者可刪除自己的每日記錄"
-    ON daily_records FOR DELETE USING (user_id = auth.uid());
-
--- ---- sleep_logs ----
-CREATE POLICY "使用者可操作自己的睡眠記錄"
-    ON sleep_logs FOR ALL
-    USING (EXISTS (
-        SELECT 1 FROM daily_records
-        WHERE daily_records.id = sleep_logs.record_id
-          AND daily_records.user_id = auth.uid()
-    ));
-
--- ---- diet_logs ----
-CREATE POLICY "使用者可操作自己的飲食記錄"
-    ON diet_logs FOR ALL
-    USING (EXISTS (
-        SELECT 1 FROM daily_records
-        WHERE daily_records.id = diet_logs.record_id
-          AND daily_records.user_id = auth.uid()
-    ));
-
--- ---- body_sensation_logs ----
-CREATE POLICY "使用者可操作自己的身體感受記錄"
-    ON body_sensation_logs FOR ALL
-    USING (EXISTS (
-        SELECT 1 FROM daily_records
-        WHERE daily_records.id = body_sensation_logs.record_id
-          AND daily_records.user_id = auth.uid()
-    ));
-
--- ---- body_sensation_area_tags ----
-CREATE POLICY "使用者可操作自己的部位標籤關聯"
-    ON body_sensation_area_tags FOR ALL
-    USING (EXISTS (
-        SELECT 1 FROM body_sensation_logs bsl
-        JOIN daily_records dr ON dr.id = bsl.record_id
-        WHERE bsl.id = body_sensation_area_tags.sensation_log_id
-          AND dr.user_id = auth.uid()
-    ));
-
--- ---- body_sensation_type_tags ----
-CREATE POLICY "使用者可操作自己的感受類型標籤關聯"
-    ON body_sensation_type_tags FOR ALL
-    USING (EXISTS (
-        SELECT 1 FROM body_sensation_logs bsl
-        JOIN daily_records dr ON dr.id = bsl.record_id
-        WHERE bsl.id = body_sensation_type_tags.sensation_log_id
-          AND dr.user_id = auth.uid()
-    ));
-
--- ---- wellness_logs ----
-CREATE POLICY "使用者可操作自己的調理記錄"
-    ON wellness_logs FOR ALL
-    USING (EXISTS (
-        SELECT 1 FROM daily_records
-        WHERE daily_records.id = wellness_logs.record_id
-          AND daily_records.user_id = auth.uid()
-    ));
-
--- ---- wellness_log_tags ----
-CREATE POLICY "使用者可操作自己的調理標籤關聯"
-    ON wellness_log_tags FOR ALL
-    USING (EXISTS (
-        SELECT 1 FROM wellness_logs wl
-        JOIN daily_records dr ON dr.id = wl.record_id
-        WHERE wl.id = wellness_log_tags.wellness_log_id
-          AND dr.user_id = auth.uid()
-    ));
-
--- ---- ai_analysis_results ----
-CREATE POLICY "使用者可讀取自己的 AI 分析結果"
-    ON ai_analysis_results FOR SELECT USING (user_id = auth.uid());
--- INSERT/UPDATE 由 n8n service_role 執行，不開放一般使用者寫入
-
--- ---- 標籤資料表：所有認證使用者可讀，寫入僅限 service_role ----
-CREATE POLICY "認證使用者可讀取調理活動標籤"
-    ON wellness_activity_tags FOR SELECT TO authenticated USING (true);
-CREATE POLICY "認證使用者可讀取身體部位標籤"
-    ON body_area_tags FOR SELECT TO authenticated USING (true);
-CREATE POLICY "認證使用者可讀取感受類型標籤"
-    ON sensation_type_tags FOR SELECT TO authenticated USING (true);
+-- RLS
+ALTER TABLE public.credits ENABLE ROW LEVEL SECURITY;
+-- 修復: 原為 practitioner_id 去比對 table 的自己，現改為取得目前 Auth user ID。
+CREATE POLICY "own_credits_only" ON public.credits USING (practitioner_id = auth.uid());

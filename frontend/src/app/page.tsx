@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, Suspense, useEffect } from "react";
 import { submitQuestionnaire } from "./actions";
 import { canSubmitNow, setLastSubmitTime } from "../lib/submitGuard";
+import { useSearchParams, useRouter } from "next/navigation";
 
 const bodyParts = [
   "頭部/後腦", "頸部 (脖子)", "肩部", "上背部 (膏肓)",
@@ -26,10 +27,21 @@ const durationTypes = [
   "長年痛/老毛病"
 ];
 
-import { useRouter } from "next/navigation";
+export default function QuestionnairePage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">載入中...</div>}>
+      <Questionnaire />
+    </Suspense>
+  )
+}
 
-export default function Questionnaire() {
+function Questionnaire() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const role = searchParams.get('role');
+  
+  const isDevMode = role === 'dev' && process.env.NODE_ENV === 'development';
+  const isStaffMode = role === 'staff';
 
   // Client Info
   const [name, setName] = useState("");
@@ -39,6 +51,22 @@ export default function Questionnaire() {
   const [isPhoneVerified, setIsPhoneVerified] = useState(false);
   const [otpError, setOtpError] = useState("");
   const [isOtpLoading, setIsOtpLoading] = useState(false);
+  const [isTest, setIsTest] = useState(false);
+
+  useEffect(() => {
+    if (isDevMode) {
+      setIsPhoneVerified(true);
+      setIsTest(true);
+    } else if (isStaffMode) {
+      import('../lib/supabaseClient').then(({ supabase }) => {
+        supabase.auth.getSession().then(({ data }) => {
+          if (data.session) {
+            setIsPhoneVerified(true);
+          }
+        });
+      });
+    }
+  }, [isDevMode, isStaffMode]);
   
   // Questionnaire Data
   const [job, setJob] = useState("");
@@ -145,7 +173,7 @@ export default function Questionnaire() {
     if (!validateGates()) return;
 
     // Gate 3: 24 Hour Duplicate Check
-    const bypass = typeof window !== 'undefined' && window.location.search.includes('bypass=true');
+    const bypass = isDevMode || (typeof window !== 'undefined' && window.location.search.includes('bypass=true'));
     if (!bypass) {
       const { allowed, remainingMs } = canSubmitNow(phone);
       if (!allowed) {
@@ -171,7 +199,8 @@ export default function Questionnaire() {
       lifestyle_description: habits,
       duration_type: duration,
       special_notes: specialNotes,
-      is_on_medication: isOnMedication
+      is_on_medication: isOnMedication,
+      is_test: isTest
     });
 
     setIsSubmitting(false);
