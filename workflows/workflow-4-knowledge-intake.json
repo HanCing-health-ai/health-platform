@@ -39,7 +39,20 @@
     },
     {
       "parameters": {
-        "prompt": "你是傳統調理知識蒲集專員。從文章中萃取所有可能有價值的知識片段。\n如包含多個穴位，每個穴位拆分為獨立條目。\n輸出格式：JSON 陣列，每筆含 title、raw_content、detected_acupoints[]。\n只蒲集不判斷，不過濾任何內容。\n文章內容: {{$json.body.raw_content}}"
+        "modelId": {
+          "__rl": true,
+          "value": "claude-3-5-sonnet-20241022",
+          "mode": "list",
+          "cachedResultName": "Claude 3.5 Sonnet"
+        },
+        "messages": {
+          "messageValues": [
+            {
+              "message": "你是 ConditionAI 傳統調理知識蒲集專員。\n你的任務\n從師傅提交的文章中，萃取所有可能有價值的調理知識片段。\n處理規則\n- 如果文章包含多個穴位，每個穴位拆分為獨立條目\n- 如果文章包含配穴組合（例如「三穴聯手」），配穴組合本身也作為一個獨立條目\n- 萃取範圍包括：穴位位置、功效、按壓方式、適用對象、禁忌、配穴邏輯\n- 只蒲集不判斷，不過濾任何內容，即使你認為內容有誤也要完整保留\n\n輸出格式\n請輸出 JSON 陣列，每筆包含：\n- title：知識標題（例如「足三里穴位基礎知識」）\n- raw_content：萃取的原始內容\n- detected_acupoints：偵測到的穴位名稱陣列（例如 [\"足三里\", \"合谷\"]\n\n⚠️ 系統限制：請只輸出合法的 JSON 陣列格式內容，絕對不要包含任何 Markdown 標記（如 ```json ）或任何解釋性前文/結語，確保能被直接解析。\n\n文章內容\n{{$json.body.raw_content}}"
+            }
+          ]
+        },
+        "options": {}
       },
       "name": "Agent 1：資料蒲集員",
       "type": "@n8n/n8n-nodes-langchain.anthropic",
@@ -48,7 +61,20 @@
     },
     {
       "parameters": {
-        "prompt": "你是知識庫結構化專員。將原始萃取轉為 knowledge_base 欄位格式。\n必填欄位：category、title、content、pattern_tags[]、level、applicable_techniques[]。\npattern_tags 先比對 tag_library 現有 active 標籤，無法對應時建議新標籤名稱。\n偵測與現有 knowledge_base 條目的重複。\n萃取結果: {{$json.message.content}}"
+        "modelId": {
+          "__rl": true,
+          "value": "claude-3-5-sonnet-20241022",
+          "mode": "list",
+          "cachedResultName": "Claude 3.5 Sonnet"
+        },
+        "messages": {
+          "messageValues": [
+            {
+              "message": "你是 ConditionAI 知識庫結構化專員。將 Agent 1 萃取的原始知識轉為 knowledge_base 資料表的結構化格式。\n必填欄位（每筆都要產出）\n- category：穴位 / 配穴組合 / 調理邏輯 / 行為模式 / 其他\n- title：知識標題\n- content：知識內容白話摘要（使用調理語言，禁止醫療用語）\n- pattern_tags[]：對應的行為模式標籤陣列\n- level：1=客戶端可見 / 2=進階課程 / 3=師傅專業\n- applicable_techniques[]：適用調理技術（例如：整復推拿、筋膜刀、芳療）\n\n選填欄位\n- combo：黃金配穴組合說明（若為配穴類別）\n- contraindications[]：禁忌對象陣列（例如：孕婦、特定舊傷部位）\n- caution_levels：注意事項三層級 JSON（absolute/careful/inform）\n\npattern_tags 處理規則\n目前 tag_library 中的 active 標籤有：久坐累積型、重複施力型、前傾姿勢型、複合負荷型、睡眠品質關聯型。\n如果知識內容無法對應現有標籤，請建議新標籤名稱並說明理由。\n\n重複偵測\n如果萃取內容與以下主題高度相似，請標記為可能重複：足三里、合谷、太衝、風池、肩井（這些是目前已有的種子資料主題）。\n\n輸出格式\n請輸出 JSON 陣列，每筆包含上述所有欄位。\n如有建議新標籤，額外輸出 proposed_tags 陣列，每筆含 tag_name 和 description。\n\n⚠️ 系統限制：請只輸出合法的 JSON 陣列格式內容，絕對不要包含任何 Markdown 標記（如 ```json ）或任何解釋性前文/結語，確保能被直接解析。\n\n萃取結果\n{{$json.message.content}}"
+            }
+          ]
+        },
+        "options": {}
       },
       "name": "Agent 2：結構化整理員",
       "type": "@n8n/n8n-nodes-langchain.anthropic",
@@ -57,7 +83,20 @@
     },
     {
       "parameters": {
-        "prompt": "你是調理知識合規審查員。執行以下所有審核關卡：\n關卡一：合規語言 — 偵測 content 與所有文字欄位中是否包含以下 20 個醫療禁止詞彙或其語意變體：診斷、確診、病因、病症、症狀、疾病、病變、治療、療效、醫治、處方、藥物、痊癒、康復、治癒、風險、併發症、惡化、緊急、危險。發現時標示違規詞彙與建議替換詞。\n關卡二：欄位完整 — title / content 必填，pattern_tags ≥ 1，level 已設定。\n關卡三：內容邏輯 — 配穴說明與穴位相符、行為標籤與內容一致。\n關卡四：層級適切 — L1 不含過度專業術語，L3 可用完整技術語言。\n關卡五：知識衝突 — 查詢 knowledge_base 現有 active 條目比對。\n草稿: {{$json.message.content}}"
+        "modelId": {
+          "__rl": true,
+          "value": "claude-3-5-sonnet-20241022",
+          "mode": "list",
+          "cachedResultName": "Claude 3.5 Sonnet"
+        },
+        "messages": {
+          "messageValues": [
+            {
+              "message": "你是 ConditionAI 調理知識合規審查員。你的任務是對結構化草稿執行五道審核關卡。\n關卡一：合規語言\n偵測 content 與所有文字欄位中是否包含以下 20 個醫療禁止詞彙或其語意變體：\n診斷、確診、病因、病症、症狀、疾病、病變、治療、療效、醫治、處方、藥物、痊癒、康復、治癒、風險、併發症、惡化、緊急、危險\n語意變體包括但不限於：「這個病」「治好」「藥效」「病情」等。\n發現時標示違規詞彙位置與建議替換詞。\n替換原則：用「舒緩」替代「治療」、用「調理建議」替代「處方」、用「不適感」替代「症狀」等。\n\n關卡二：欄位完整\n- title 和 content 必填且不可為空\n- pattern_tags 至少 1 個\n- level 必須是 1、2 或 3\n- applicable_techniques 至少 1 個\n\n關卡三：內容邏輯\n- 配穴說明是否與穴位名稱相符\n- 行為標籤是否與知識內容一致（例如：久坐累積型的知識不應標記為重複施力型）\n- applicable_techniques 是否合理\n\n關卡四：層級適切\n- L1（客戶端）：不應含過度專業術語，語言需白話\n- L2（進階課程）：可有適度專業度\n- L3（師傅專業）：可用完整技術語言\n\n關卡五：知識衝突\n判斷是否與現有知識庫的常見穴位知識有矛盾說法。如有衝突，列出衝突點供審核者裁決。\n\n輸出格式\n請輸出 JSON，包含：\n- compliance_check: { passed: boolean, violations: [], suggestions: [] }\n- field_check: { passed: boolean, missing_fields: [] }\n- logic_check: { passed: boolean, issues: [] }\n- level_check: { passed: boolean, suggestion: string }\n- conflict_check: { has_conflict: boolean, conflict_details: [] }\n- overall_recommendation: approve / partial / reject\n- source_credibility: high / medium / low（根據內容專業度評估）\n\n⚠️ 系統限制：請只輸出合法的 JSON 物件格式內容，絕對不要包含任何 Markdown 標記（如 ```json ）或任何解釋性前文/結語，確保能被直接解析。\n\n結構化草稿\n{{$json.message.content}}"
+            }
+          ]
+        },
+        "options": {}
       },
       "name": "Agent 3：合規審查員 (AI)",
       "type": "@n8n/n8n-nodes-langchain.anthropic",
@@ -75,7 +114,20 @@
     },
     {
       "parameters": {
-        "prompt": "你是審核報告整合專員。將前三個 Agent 的輸出整合為一份清晰的人工審核報告。\n報告包含：萃取結果摘要、合規審查結果、衝突警示、建議決策選項。\n建議決策選項：通過 / 部分通過 / 退回，附各選項理由。\n資料: {{$json}}"
+        "modelId": {
+          "__rl": true,
+          "value": "claude-3-5-sonnet-20241022",
+          "mode": "list",
+          "cachedResultName": "Claude 3.5 Sonnet"
+        },
+        "messages": {
+          "messageValues": [
+            {
+              "message": "你是 ConditionAI 審核報告整合專員。將前三個 Agent 的輸出整合為一份清晰的人工審核報告，讓審核者在 2 分鐘內做出決策。\n報告結構\n一、萃取摘要\n- 共萃取幾筆知識條目\n- 各條目標題列表\n- 是否包含配穴組合\n\n二、合規審查結果\n- 通過 / 有警告 / 未通過\n- 如有違規詞彙，列出具體位置和建議替換\n- 如有欄位缺漏，列出缺少項目\n\n三、衝突警示\n- 是否與現有知識庫有衝突\n- 衝突的具體內容（如有）\n\n四、來源可信度\n- high / medium / low\n- 評估理由\n\n五、建議決策\n列出三個選項，每個附上理由：\n- ✅ 通過（approve）：所有關卡通過，建議直接入庫\n- ⚠️ 部分通過（partial）：部分條目通過、部分需修正\n- ❌ 退回（reject）：有根本性問題，需要重新提交\n\n六、新標籤建議（如有）\n- 建議的新標籤名稱和定義\n\n格式要求\n使用繁體中文，語言簡潔明確，方便審核者快速掃描。\n每個段落開頭用 emoji 標記狀態（✅⚠️❌📋🏷️）。\n輸入資料\n{{$json}}"
+            }
+          ]
+        },
+        "options": {}
       },
       "name": "Agent 4：報告整合員",
       "type": "@n8n/n8n-nodes-langchain.anthropic",
