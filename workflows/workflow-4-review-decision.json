@@ -1,0 +1,254 @@
+{
+  "name": "Review Decision Pipeline",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "review-decision",
+        "options": {}
+      },
+      "name": "Webhook 接收",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "e2ba7e16-bbdc-472e-bea1-64d8a27d21ca",
+              "leftValue": "={{ $json.query.review_note.length }}",
+              "rightValue": 10,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "驗證決策",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 3,
+      "position": [
+        220,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "knowledge_base",
+        "matchColumns": "id",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "id",
+              "fieldValue": "={{ $json.query.knowledge_id }}"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "={{ $json.query.decision === 'approve' ? 'active' : ($json.query.decision === 'reject' ? 'draft' : 'partial') }}"
+            },
+            {
+              "fieldId": "review_note",
+              "fieldValue": "={{ $json.query.review_note }}"
+            },
+            {
+              "fieldId": "last_reviewed_at",
+              "fieldValue": "={{ new Date().toISOString() }}"
+            }
+          ]
+        }
+      },
+      "name": "更新 knowledge_base",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        440,
+        0
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "supabase-credentials",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "tag_library",
+        "matchColumns": "tag_name",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "tag_name",
+              "fieldValue": "={{ $json.query.proposed_tag }}"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "active"
+            },
+            {
+              "fieldId": "approved_at",
+              "fieldValue": "={{ new Date().toISOString() }}"
+            }
+          ]
+        }
+      },
+      "name": "處理 tag_library",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        660,
+        0
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "supabase-credentials",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "tableId": "credits",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "practitioner_id",
+              "fieldValue": "={{ $json.query.reviewer_id }}"
+            },
+            {
+              "fieldId": "amount",
+              "fieldValue": "={{ $json.query.decision === 'approve' ? 10 : ($json.query.decision === 'partial' ? 10 : 0) }}"
+            },
+            {
+              "fieldId": "reason",
+              "fieldValue": "knowledge_contributed"
+            },
+            {
+              "fieldId": "knowledge_id",
+              "fieldValue": "={{ $json.query.knowledge_id }}"
+            }
+          ]
+        }
+      },
+      "name": "更新 credits",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        880,
+        0
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "supabase-credentials",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "https://notify-api.line.me/api/notify",
+        "method": "POST",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {LINE_TOKEN}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "message",
+              "value": "🌟 知識貢獲回饋\n您提交的「{{ $json.title || '知識條目' }}」已{{ $json.query.decision === 'approve' ? 'approve' : ($json.query.decision === 'partial' ? 'partial' : 'reject') }}\n獲得點數：+{{ $json.query.decision === 'reject' ? '0' : '10' }} 點\n感謝您的貢獻，每一筆知識都讓系統更智慧！"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "LINE 通知師傅",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1100,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook 接收": {
+      "main": [
+        [
+          {
+            "node": "驗證決策",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "驗證決策": {
+      "main": [
+        [
+          {
+            "node": "更新 knowledge_base",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "更新 knowledge_base": {
+      "main": [
+        [
+          {
+            "node": "處理 tag_library",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "處理 tag_library": {
+      "main": [
+        [
+          {
+            "node": "更新 credits",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "更新 credits": {
+      "main": [
+        [
+          {
+            "node": "LINE 通知師傅",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

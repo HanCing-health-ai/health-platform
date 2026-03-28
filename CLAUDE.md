@@ -103,7 +103,7 @@
 - `knowledge_base` 五筆種子資料種入
 - Prompt 合規語言修正（移除「必須採納」）
 
-### 🔜 V1.5 B組 Wave 3（進行中）
+### ✅ V1.5 B組 Wave 3 已完成
 - n8n Cloud 工作流四：Multi-Agent 知識審核流水線
   - 工作流 A：知識提交 → 四 Agent 處理 → 寫入 `pending_review` → LINE 通知審核者
   - 工作流 B：審核決策 → 更新 status → 通知師傅 → 更新 `credits`
@@ -242,4 +242,4 @@ Claude Code 負責執行：
 
 *本文件由 Claude 策略端定義，Antigravity 執行端維護。*
 *每完成一個 Wave 同步更新版本進度區塊。*
-*最後更新：2026-03-28 | V1.5 B組 Wave 2 完成，Wave 3 進行中*
+*最後更新：2026-03-28 | V1.5 B組 Wave 3 已完成*

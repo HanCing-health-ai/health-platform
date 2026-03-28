@@ -1,0 +1,348 @@
+{
+  "name": "Knowledge Intake Pipeline",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "knowledge-intake",
+        "options": {}
+      },
+      "name": "Webhook 接收",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "c864dd12-68c3-4c91-aca7-832101ab0b76",
+              "leftValue": "={{ $json.body.raw_content.length }}",
+              "rightValue": 20,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            },
+            {
+              "id": "e2ba7e16-bbdc-472e-bea1-64d8a27d21ca",
+              "leftValue": "={{ $json.body.contributor_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "輸入驗證",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 3,
+      "position": [
+        220,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "claude-3-5-sonnet-20241022",
+          "mode": "list",
+          "cachedResultName": "Claude 3.5 Sonnet"
+        },
+        "messages": {
+          "messageValues": [
+            {
+              "message": "你是傳統調理知識蒲集專員。從文章中萃取所有可能有價值的知識片段。\n如包含多個穴位，每個穴位拆分為獨立條目。\n輸出格式：JSON 陣列，每筆含 title、raw_content、detected_acupoints[]。\n只蒲集不判斷，不過濾任何內容。\n文章內容: {{ $json.body.raw_content }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Agent 1：資料蒲集員",
+      "type": "@n8n/n8n-nodes-langchain.anthropic",
+      "typeVersion": 1,
+      "position": [
+        440,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "claude-3-5-sonnet-20241022",
+          "mode": "list",
+          "cachedResultName": "Claude 3.5 Sonnet"
+        },
+        "messages": {
+          "messageValues": [
+            {
+              "message": "你是知識庫結構化專員。將原始萃取轉為 knowledge_base 欄位格式。\n必填欄位：category、title、content、pattern_tags[]、level、applicable_techniques[]。\npattern_tags 先比對 tag_library 現有 active 標籤，無法對應時建議新標籤名稱。\n偵測與現有 knowledge_base 條目的重複。\n萃取結果: {{ $json.message.content }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Agent 2：結構化整理員",
+      "type": "@n8n/n8n-nodes-langchain.anthropic",
+      "typeVersion": 1,
+      "position": [
+        660,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "claude-3-5-sonnet-20241022",
+          "mode": "list",
+          "cachedResultName": "Claude 3.5 Sonnet"
+        },
+        "messages": {
+          "messageValues": [
+            {
+              "message": "你是調理知識合規審查員。執行後續關卡：欄位完整、內容邏輯、層級適切、知識衝突。\n關卡二：欄位完整 — title / content 必填，pattern_tags ≥ 1，level 已設定。\n關卡三：內容邏輯 — 配穴說明與穴位相符、行為標籤與內容一致。\n關卡四：層級適切 — L1 不含過度專業術語，L3 可用完整技術語言。\n關卡五：知識衝突 — 查詢 knowledge_base 現有 active 條目比對。\n草稿: {{ $json.message.content }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Agent 3：合規審查員 (AI)",
+      "type": "@n8n/n8n-nodes-langchain.anthropic",
+      "typeVersion": 1,
+      "position": [
+        880,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const FORBIDDEN = [\"診斷\",\"確診\",\"病因\",\"病症\",\"症狀\",\"疾病\",\"病變\",\n  \"治療\",\"療效\",\"醫治\",\"處方\",\"藥物\",\"痊癒\",\"康復\",\"治癒\",\n  \"風險\",\"併發症\",\"惡化\",\"緊急\",\"危險\"];\nconst text = JSON.stringify($input.item.json, null, 0);\nconst violations = FORBIDDEN.filter(w => text.includes(w));\n\nreturn {\n  ...$input.item.json,\n  violations: violations,\n  has_violations: violations.length > 0\n};"
+      },
+      "name": "Agent 3：合規審查員 (Code)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1100,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "claude-3-5-sonnet-20241022",
+          "mode": "list",
+          "cachedResultName": "Claude 3.5 Sonnet"
+        },
+        "messages": {
+          "messageValues": [
+            {
+              "message": "你是審核報告整合專員。將前三個 Agent 的輸出整合為一份清晰的人工審核報告。\n報告包含：萃取結果摘要、合規審查結果、衝突警示、建議決策選項。\n建議決策選項：通過 / 部分通過 / 退回，附各選項理由。\n資料: {{ $json }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Agent 4：報告整合員",
+      "type": "@n8n/n8n-nodes-langchain.anthropic",
+      "typeVersion": 1,
+      "position": [
+        1320,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "tableId": "knowledge_base",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "pending_review"
+            },
+            {
+              "fieldId": "contributor_id",
+              "fieldValue": "={{ $node['Webhook 接收'].json.body.contributor_id }}"
+            },
+            {
+              "fieldId": "source_credibility",
+              "fieldValue": "={{ $json.source_credibility || 'medium' }}"
+            },
+            {
+              "fieldId": "version",
+              "fieldValue": "1"
+            },
+            {
+              "fieldId": "title",
+              "fieldValue": "={{ $json.title }}"
+            },
+            {
+              "fieldId": "category",
+              "fieldValue": "={{ $json.category }}"
+            },
+            {
+              "fieldId": "content",
+              "fieldValue": "={{ $json.content }}"
+            },
+            {
+              "fieldId": "level",
+              "fieldValue": "={{ $json.level }}"
+            }
+          ]
+        }
+      },
+      "name": "寫入 Supabase (knowledge_base)",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1540,
+        0
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "supabase-credentials",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "https://notify-api.line.me/api/notify",
+        "method": "POST",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {LINE_TOKEN}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "message",
+              "value": "📚 新知識待審核\n標題：{{ $json.title }}\n來源可信度：{{ $json.source_credibility }}\n合規審查：{{ $json.has_violations ? 'fail' : 'pass' }}\n建議決策：{{ $json.decision_suggestion }}\n點此審核：{review_webhook_url}?id={{ $json.id }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "LINE 通知審核者",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1760,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook 接收": {
+      "main": [
+        [
+          {
+            "node": "輸入驗證",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "輸入驗證": {
+      "main": [
+        [
+          {
+            "node": "Agent 1：資料蒲集員",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agent 1：資料蒲集員": {
+      "main": [
+        [
+          {
+            "node": "Agent 2：結構化整理員",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agent 2：結構化整理員": {
+      "main": [
+        [
+          {
+            "node": "Agent 3：合規審查員 (AI)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agent 3：合規審查員 (AI)": {
+      "main": [
+        [
+          {
+            "node": "Agent 3：合規審查員 (Code)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agent 3：合規審查員 (Code)": {
+      "main": [
+        [
+          {
+            "node": "Agent 4：報告整合員",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agent 4：報告整合員": {
+      "main": [
+        [
+          {
+            "node": "寫入 Supabase (knowledge_base)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "寫入 Supabase (knowledge_base)": {
+      "main": [
+        [
+          {
+            "node": "LINE 通知審核者",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}
