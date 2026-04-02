@@ -121,19 +121,18 @@
     },
     {
       "parameters": {
-        "url": "https://notify-api.line.me/api/notify",
+        "url": "https://api.line.me/v2/bot/message/push",
         "method": "POST",
         "sendHeaders": true,
-        "headerParameters": {"parameters": [{"name": "Authorization", "value": "Bearer {LINE_TOKEN}"}]},
-        "sendBody": true,
-        "bodyParameters": {
+        "headerParameters": {
           "parameters": [
-            {
-              "name": "message",
-              "value": "={{'🌟 知識貢獻回饋\\n您提交的「' + ($node['取得 knowledge_base 紀錄'].json.title || '知識條目') + '」' + ($node['Webhook 接收'].json.query.decision === 'approve' ? '已入庫' : ($node['Webhook 接收'].json.query.decision === 'partial' ? '部分入庫' : '未通過')) + '\\n獲得點數：+' + ($node['Webhook 接收'].json.query.decision === 'reject' ? '0' : '10') + ' 點（累計 {total} 點）\\n感謝您的貢獻，每一筆知識都讓系統更智慧！'}}"
-            }
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "Authorization", "value": "Bearer {CHANNEL_ACCESS_TOKEN}" }
           ]
-        }
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"to\": \"{{$node['取得 knowledge_base 紀錄'].json.contributor_line_user_id || '{DEFAULT_PRACTITIONER_ID}'}}\",\n  \"messages\": [\n    {\n      \"type\": \"text\",\n      \"text\": \"🌟 知識貢獻回饋\\n您提交的「{{ $node['取得 knowledge_base 紀錄'].json.title || '知識條目' }}」{{ $node['Webhook 接收'].json.query.decision === 'approve' ? '已入庫 ✅' : ($node['Webhook 接收'].json.query.decision === 'partial' ? '部分入庫 ⚠️' : '未通過 ❌') }}\\n獲得點數：+{{ $node['Webhook 接收'].json.query.decision === 'reject' ? '0' : '10' }} 點\\n\\n感謝您的貢獻，每一筆知識都讓系統更智慧！\"\n    }\n  ]\n}"
       },
       "name": "LINE 通知師傅",
       "type": "n8n-nodes-base.httpRequest",

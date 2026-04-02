@@ -34,7 +34,7 @@
 | 任務 | 狀態 | 優先級 |
 |------|------|--------|
 | 修 `schema.sql` status CHECK 約束 | ✅ 完成 | 致命地雷 → 已排除 |
-| LINE Notify → Messaging API 遷移規格 | ✅ 完成 | 文件已產出 `docs/plans/` |
+| LINE API 遷移規格與執行 | ✅ 完成 | JSON 節點更新與 Schema 修改完畢 |
 | SVG 互動式身體圖標記 | ✅ 完成 | `BodyMap.tsx` 已建立 |
 | 歷史 AI 分析時間軸 UI | ✅ 完成 | `InsightTimeline.tsx` 已建立 |
 | `products` 資料表設計 (RMN) | 🟢 延至 V2 後期 | 商務前提不足（已記錄 LEARNINGS.md） |

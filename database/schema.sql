@@ -16,6 +16,7 @@ CREATE TABLE public.profiles (
   studio_id UUID REFERENCES public.studios(id) ON DELETE CASCADE,
   name VARCHAR(100) NOT NULL,
   specialty_tags TEXT[],       -- 專長標籤
+  line_user_id TEXT,           -- LINE User ID (V1.5新增，用於 Messaging API)
   is_active BOOLEAN DEFAULT true,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );

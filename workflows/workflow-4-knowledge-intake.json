@@ -186,12 +186,18 @@
     },
     {
       "parameters": {
-        "url": "https://notify-api.line.me/api/notify",
+        "url": "https://api.line.me/v2/bot/message/push",
         "method": "POST",
         "sendHeaders": true,
-        "headerParameters": {"parameters": [{"name": "Authorization", "value": "Bearer {LINE_TOKEN}"}]},
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "Authorization", "value": "Bearer {CHANNEL_ACCESS_TOKEN}" }
+          ]
+        },
         "sendBody": true,
-        "bodyParameters": {"parameters": [{"name": "message", "value": "📚 新知識待審核\n標題：{{$json.title}}\n來源可信度：{{$json.source_credibility}}\n合規審查：{{$json.has_violations ? 'fail' : 'pass'}}\n建議決策：{{$json.decision_suggestion}}\n點此審核：{review_webhook_url}?id={{$json.id}}"}]}
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"to\": \"{REVIEWER_USER_ID}\",\n  \"messages\": [\n    {\n      \"type\": \"text\",\n      \"text\": \"📚 新知識待審核\\n標題：{{$json.title}}\\n來源可信度：{{$json.source_credibility}}\\n合規審查：{{$json.has_violations ? '❌ 未通過' : '✅ 通過'}}\\n建議決策：{{$json.decision_suggestion}}\\n\\n點此審核：{review_webhook_url}?id={{$json.id}}\"\n    }\n  ]\n}"
       },
       "name": "LINE 通知審核者",
       "type": "n8n-nodes-base.httpRequest",
