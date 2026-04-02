@@ -116,6 +116,29 @@ CREATE TABLE public.injection_attempts (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- 9. treatment_records (調理記錄)
+CREATE TABLE public.treatment_records (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  client_id UUID REFERENCES public.clients(id) ON DELETE CASCADE,
+  practitioner_id UUID REFERENCES public.profiles(id),
+  response_id UUID REFERENCES public.questionnaire_responses(id) ON DELETE SET NULL,
+  technique TEXT,                                -- 使用手法
+  body_areas TEXT[] DEFAULT '{}',                -- 調理部位
+  duration_minutes INTEGER,                      -- 調理時間（分鐘）
+  notes TEXT,                                    -- 師傅備註
+  ai_adoption_score INTEGER CHECK (ai_adoption_score BETWEEN 1 AND 5),   -- AI 建議採納程度（1-5，選填）
+  self_confidence INTEGER CHECK (self_confidence BETWEEN 1 AND 5),       -- 師傅自評信心（1-5，選填）
+  post_session_note TEXT,                        -- 調理後觀察筆記（選填）
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 索引
+CREATE INDEX idx_treatment_records_client_id ON public.treatment_records (client_id);
+CREATE INDEX idx_treatment_records_practitioner_id ON public.treatment_records (practitioner_id);
+
+-- RLS
+ALTER TABLE public.treatment_records ENABLE ROW LEVEL SECURITY;
+
 -- ==========================================
 -- V1.5 B組 知識管理系統 (Wave 1)
 -- ==========================================
@@ -134,7 +157,7 @@ CREATE TABLE public.knowledge_base (
   level INTEGER NOT NULL CHECK (level IN (1, 2, 3)),
   source TEXT,
   source_credibility TEXT CHECK (source_credibility IN ('high', 'medium', 'low')),
-  status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'pending_review', 'active', 'suspended')),
+  status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'pending_review', 'active', 'suspended', 'partial', 'needs_revision', 'rejected')),
   conflict_ids UUID[] DEFAULT '{}',
   last_reviewed_at TIMESTAMPTZ,
   review_note TEXT,

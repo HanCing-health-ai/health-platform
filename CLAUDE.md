@@ -234,9 +234,21 @@ Claude Code 負責執行：
 - `/browse` — RWD 390px 驗證
 - `/cso` — 部署前資安掃描
 
-**Discord 頻道用途：**
+**Discord 遠端指令（手機 → 桌電）：**
+
+頻道：
 - `#antigravity-tasks` — 對 Claude Code 下達遠端指令
 - `#antigravity-report` — 接收回報
+
+指令格式：`[角色前綴] 任務描述`
+```
+[開發] 幫我看 actions.ts 的 get_relevant_knowledge 函數寫得對嗎
+[知識庫] 審核這筆資料是否合規：足三里穴位於膝蓋下方
+[架構] B組 Wave 1 完成，幫我做一次整體架構健診
+[設計] 師傅端卡片排版有沒有符合 44px 熱區？
+
+狀態？ / 暫停 / 繼續 / 放棄   ← 流程控制指令
+```
 
 ---
 
