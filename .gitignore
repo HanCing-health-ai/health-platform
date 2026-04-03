@@ -50,3 +50,5 @@ roadmap_private.md
 # 加入 .gitignore
 docs/roadmap_private.md
 docs/system-prompt-v1.md
+docs/v5_references/collaboration_manual.md
+docs/v5_references/km_agent_system_design.md
