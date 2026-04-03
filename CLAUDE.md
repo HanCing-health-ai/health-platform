@@ -27,6 +27,7 @@
 | AI | Claude API (claude-sonnet-4-6) | Structured Output |
 | 資料庫 | Supabase (PostgreSQL + Auth + RLS) | 15 張資料表 |
 | 工作流 | n8n Cloud | https://hancing.app.n8n.cloud |
+| 通知推送 | LINE Messaging API | 替代已終止的 LINE Notify |
 | 版本控制 | Git + GitHub | 主分支：**master**（非 main） |
 
 **重要：主分支是 `master`，不是 `main`，所有 push/pull 請確認分支名稱。**
@@ -103,16 +104,19 @@
 - `knowledge_base` 五筆種子資料種入
 - Prompt 合規語言修正（移除「必須採納」）
 
-### ✅ V1.5 B組 Wave 3 已完成
-- n8n Cloud 工作流四：Multi-Agent 知識審核流水線
-  - 工作流 A：知識提交 → 四 Agent 處理 → 寫入 `pending_review` → LINE 通知審核者
-  - 工作流 B：審核決策 → 更新 status → 通知師傅 → 更新 `credits`
+### ✅ V1.5 B組 Wave 3 已完成（端到端測試通過，知識庫 → pending_review → approve → active，credits +10 確認）
+- n8n Cloud Workflow 4 雙 JSON 產出並匯入，端到端測試通過
+- 工作流 A：知識提交 → 四 Agent 處理 → 寫入 `pending_review` → LINE 通知審核者
+- 工作流 B：審核決策 → 更新 status → 通知師傅 → 更新 `credits`
 
 ### ⏳ V1 遺留（另排時間，不阻擋 V1.5）
+- LINE Messaging API 整合（替代已終止的 LINE Notify）
+- n8n Cloud 免費試用到期，需決策付費或替代方案
 - VPS 安全強化（UFW / SSH Key / fail2ban）
 - 電話號碼 OTP 驗證漏洞（Gate 3 bypass）
 - n8n 三條核心工作流串接（client_intake / follow_up / daily_summary）
 - 筆電 git pull 同步 + `.env.local` 補 `N8N_WEBHOOK_URL`
+- **備註**：回訪間隔已從 28/56/84 天調整為 7/14/21 天（待工作流實作時套用）
 
 ---
 
@@ -146,7 +150,7 @@
 | 角色 | 工具 | 職責 |
 |------|------|------|
 | **Claude（策略端）** | claude.ai 瀏覽器 | 規格定義、任務單產出、合規審查、商業決策 |
-| **Antigravity（執行端）** | Google DeepMind AI 驅動的 IDE | 程式碼實作、測試、部署（注意：非 Claude 模型） |
+| **Antigravity（執行端）** | Google DeepMind / Gemini 架構 IDE | 程式碼實作、測試、部署（注意：非 Claude 模型） |
 | **Claude Code（測試端）** | VS Code terminal | npx tsc 驗證、RWD 測試，不負責寫程式 |
 | **創辦人** | 傳遞者 | 任務傳遞、決策確認、最終驗收 |
 
@@ -281,4 +285,4 @@ Claude Code 負責執行：
 
 *本文件由 Claude 策略端定義，Antigravity 執行端維護。*
 *每完成一個 Wave 同步更新版本進度區塊。*
-*最後更新：2026-03-29 | V1.5 B組 Wave 3 已完成，開收工SOP與商業備忘已寫入*
+*最後更新：2026-04-03，V1.5 B組全部完成，下一步 LINE Messaging API + V1.5 C/D 組*
