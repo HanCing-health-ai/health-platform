@@ -192,12 +192,12 @@
         "headerParameters": {
           "parameters": [
             { "name": "Content-Type", "value": "application/json" },
-            { "name": "Authorization", "value": "Bearer {CHANNEL_ACCESS_TOKEN}" }
+            { "name": "Authorization", "value": "Bearer {{$env.LINE_CHANNEL_ACCESS_TOKEN}}" }
           ]
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "{\n  \"to\": \"{REVIEWER_USER_ID}\",\n  \"messages\": [\n    {\n      \"type\": \"text\",\n      \"text\": \"📚 新知識待審核\\n標題：{{$json.title}}\\n來源可信度：{{$json.source_credibility}}\\n合規審查：{{$json.has_violations ? '❌ 未通過' : '✅ 通過'}}\\n建議決策：{{$json.decision_suggestion}}\\n\\n點此審核：{review_webhook_url}?id={{$json.id}}\"\n    }\n  ]\n}"
+        "jsonBody": "{\n  \"to\": \"{{$env.LINE_USER_ID}}\",\n  \"messages\": [\n    {\n      \"type\": \"text\",\n      \"text\": \"📚 新知識待審核\\n標題：{{$json.title}}\\n來源可信度：{{$json.source_credibility}}\\n合規審查：{{$json.has_violations ? '❌ 未通過' : '✅ 通過'}}\\n建議決策：{{$json.decision_suggestion}}\\n\\n點此審核：{review_webhook_url}?id={{$json.id}}\"\n    }\n  ]\n}"
       },
       "name": "LINE 通知審核者",
       "type": "n8n-nodes-base.httpRequest",
