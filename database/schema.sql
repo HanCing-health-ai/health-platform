@@ -40,7 +40,8 @@ CREATE TABLE public.questionnaire_responses (
   client_id UUID REFERENCES public.clients(id) ON DELETE CASCADE,
   studio_id UUID REFERENCES public.studios(id) ON DELETE CASCADE,
   discomfort_areas TEXT[] NOT NULL,         -- 勾選的不適部位
-  lifestyle_description TEXT,               -- 生活習慣描述
+  lifestyle_description TEXT,               -- 生活習慣描述 (舊版文字描述)
+  lifestyle_factors JSONB,                  -- 生活習慣與狀況 (V1.5 C組新增結構化資料)
   primary_complaint TEXT,                   -- 主訴
   duration_type VARCHAR(50),                -- 持續時間 (例如: 超過半年)
   special_notes TEXT,                       -- 特殊備註/舊傷

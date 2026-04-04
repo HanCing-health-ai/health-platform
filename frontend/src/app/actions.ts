@@ -41,6 +41,7 @@ export async function submitQuestionnaire(formData: {
   special_notes: string;
   is_on_medication: boolean;
   is_test?: boolean;
+  lifestyle_factors?: any;
 }) {
   try {
     // === Input Quality Gate ===
@@ -81,11 +82,13 @@ export async function submitQuestionnaire(formData: {
     }
 
     // 0. Studio Setup
-    let { data: studio, error: studioErr } = await supabase
+    const studioRes = await supabase
       .from('studios')
       .select('id')
       .eq('name', 'Demo Studio')
       .single();
+    let studio = studioRes.data;
+    const studioErr = studioRes.error;
 
     if (studioErr || !studio) {
       const { data: newStudio, error: newStudioErr } = await supabase
@@ -100,11 +103,13 @@ export async function submitQuestionnaire(formData: {
     const studioId = studio.id;
 
     // 1. Client Setup
-    let { data: client, error: clientFetchErr } = await supabase
+    const clientRes = await supabase
       .from('clients')
       .select('id')
       .eq('phone', formData.phone)
       .single();
+    const client = clientRes.data;
+    const _clientFetchErr = clientRes.error;
 
     let clientId;
     if (!client) {
@@ -139,7 +144,8 @@ export async function submitQuestionnaire(formData: {
         primary_complaint: formData.primary_complaint,
         duration_type: formData.duration_type,
         special_notes: formData.special_notes,
-        is_on_medication: formData.is_on_medication
+        is_on_medication: formData.is_on_medication,
+        lifestyle_factors: formData.lifestyle_factors
       }])
       .select('id')
       .single();
@@ -243,6 +249,7 @@ export async function submitQuestionnaire(formData: {
           job_type: formData.occupation_type,
           discomfort_areas: formData.discomfort_areas,
           lifestyle_description: formData.lifestyle_description,
+          lifestyle_factors: formData.lifestyle_factors,
           primary_complaint: formData.primary_complaint,
           duration_type: formData.duration_type,
           special_notes: formData.special_notes,
@@ -270,9 +277,9 @@ export async function submitQuestionnaire(formData: {
           
           let parsedResult;
           try {
-            let cleanedText = resultText.trim().replace(/^```json/, '').replace(/```$/, '').trim();
+            const cleanedText = resultText.trim().replace(/^```json/, '').replace(/```$/, '').trim();
             parsedResult = JSON.parse(cleanedText);
-          } catch(e) {
+          } catch(_e) {
             console.error("JSON 解析失敗:", resultText);
             throw new Error("AI 分析格式錯誤");
           }
@@ -310,16 +317,16 @@ export async function submitQuestionnaire(formData: {
         } else {
           throw new Error("Claude API 呼叫失敗");
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error("Claude 處理錯誤:", err);
         return { success: false, error: "AI 分析失敗，請稍後再試" };
       }
     }
 
     return { success: true, responseId: responseData.id };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("提交錯誤:", error);
-    return { success: false, error: error.message };
+    return { success: false, error: (error as Error).message };
   }
 }
 
@@ -341,9 +348,9 @@ export async function getInsightReport(responseId: string) {
     }
 
     return { success: true, isReady: true, data: insightReport };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("getInsightReport exception:", error);
-    return { success: false, error: error.message };
+    return { success: false, error: (error as Error).message };
   }
 }
 
@@ -354,7 +361,7 @@ export async function getInsightReport(responseId: string) {
  * @param payload 要傳送的 JSON 資料
  * @returns { success: boolean, error?: string }
  */
-export async function triggerN8nWebhook(webhookUrl: string, payload: any) {
+export async function triggerN8nWebhook(webhookUrl: string, payload: unknown) {
   try {
     const secret = process.env.WEBHOOK_SECRET;
     if (!secret) throw new Error("缺少 WEBHOOK_SECRET 環境變數");
@@ -373,8 +380,8 @@ export async function triggerN8nWebhook(webhookUrl: string, payload: any) {
     }
 
     return { success: true };
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("triggerN8nWebhook 執行失敗:", err);
-    return { success: false, error: err.message };
+    return { success: false, error: (err as Error).message };
   }
 }

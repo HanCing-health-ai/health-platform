@@ -9,7 +9,14 @@ export default function ResultPage({ params }: { params: Promise<{ id: string }>
   
   const [isReady, setIsReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [reportData, setReportData] = useState<any>(null);
+  const [reportData, setReportData] = useState<{
+    analysis_client: string;
+    analysis_master: string;
+    pattern_type: string;
+    primary_load_source: string;
+    lifestyle_tags: string[];
+    risk_class: string;
+  } | null>(null);
 
   const [activeTab, setActiveTab] = useState<'client' | 'master'>('client');
   const [isAdopted, setIsAdopted] = useState(false);
@@ -18,9 +25,7 @@ export default function ResultPage({ params }: { params: Promise<{ id: string }>
   useEffect(() => {
     if (!responseId) return;
 
-    let pollInterval: NodeJS.Timeout;
-
-    const checkStatus = async () => {
+    const checkStatus = async (intervalId?: NodeJS.Timeout) => {
       try {
         const result = await getInsightReport(responseId);
         
@@ -30,11 +35,11 @@ export default function ResultPage({ params }: { params: Promise<{ id: string }>
         }
 
         if (result.isReady && result.data) {
-          setReportData(result.data);
+          setReportData(result.data as any);
           setIsReady(true);
-          clearInterval(pollInterval);
+          if (intervalId) clearInterval(intervalId);
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error("Polling error:", err);
       }
     };
@@ -43,9 +48,9 @@ export default function ResultPage({ params }: { params: Promise<{ id: string }>
     checkStatus();
 
     // 如果還沒有準備好，就開始輪詢
-    pollInterval = setInterval(() => {
+    const pollInterval = setInterval(() => {
       if (!isReady) {
-        checkStatus();
+        checkStatus(pollInterval);
       }
     }, 5000); // 每 5 秒檢查一次
 
