@@ -108,9 +108,10 @@
 - n8n Cloud Workflow 4 雙 JSON 產出並匯入，端到端測試通過
 - 工作流 A：知識提交 → 四 Agent 處理 → 寫入 `pending_review` → LINE 通知審核者
 - 工作流 B：審核決策 → 更新 status → 通知師傅 → 更新 `credits`
+- Supabase status constraint：已加入 partial 狀態
 
 ### ⏳ V1 遺留（另排時間，不阻擋 V1.5）
-- LINE Messaging API 整合（替代已終止的 LINE Notify）
+- ✅ LINE Messaging API 整合（替代已終止的 LINE Notify）已完成
 - n8n Cloud 免費試用到期，需決策付費或替代方案
 - VPS 安全強化（UFW / SSH Key / fail2ban）
 - 電話號碼 OTP 驗證漏洞（Gate 3 bypass）
@@ -204,7 +205,9 @@
 
 ---
 
-## 十三、gstack 指令（已安裝）
+## 十三、自訂 Skill 指令（取代 gstack）
+
+⚠️ **gstack 狀態備註：為防範 Telemetry 隱私外洩風險，本專案實際「未安裝」gstack。表中指令已全面棄用，改由本機端開發之無後門安全腳本取代。**
 
 | 指令 | 時機 |
 |------|------|
@@ -285,4 +288,4 @@ Claude Code 負責執行：
 
 *本文件由 Claude 策略端定義，Antigravity 執行端維護。*
 *每完成一個 Wave 同步更新版本進度區塊。*
-*最後更新：2026-04-03，V1.5 B組全部完成，下一步 LINE Messaging API + V1.5 C/D 組*
+*最後更新：2026-04-04，知識審核端到端測試與 LINE Messaging API 整合完成。下一步：V1.5 C 組客戶體驗升級（LoadingState）。*
