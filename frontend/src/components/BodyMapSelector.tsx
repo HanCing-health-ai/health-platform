@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback } from 'react';
 
 /**
  * BodyMapSelector — V1.5 C組 互動式身體部位標記元件

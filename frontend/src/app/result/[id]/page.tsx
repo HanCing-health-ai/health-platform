@@ -8,15 +8,17 @@ export default function ResultPage({ params }: { params: Promise<{ id: string }>
   const responseId = unwrappedParams.id;
   
   const [isReady, setIsReady] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [reportData, setReportData] = useState<{
+  type ReportData = {
     analysis_client: string;
     analysis_master: string;
     pattern_type: string;
     primary_load_source: string;
     lifestyle_tags: string[];
     risk_class: string;
-  } | null>(null);
+  };
+
+  const [error, setError] = useState<string | null>(null);
+  const [reportData, setReportData] = useState<ReportData | null>(null);
 
   const [activeTab, setActiveTab] = useState<'client' | 'master'>('client');
   const [isAdopted, setIsAdopted] = useState(false);
@@ -35,7 +37,7 @@ export default function ResultPage({ params }: { params: Promise<{ id: string }>
         }
 
         if (result.isReady && result.data) {
-          setReportData(result.data as any);
+          setReportData(result.data as unknown as ReportData);
           setIsReady(true);
           if (intervalId) clearInterval(intervalId);
         }

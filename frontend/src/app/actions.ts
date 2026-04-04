@@ -41,7 +41,7 @@ export async function submitQuestionnaire(formData: {
   special_notes: string;
   is_on_medication: boolean;
   is_test?: boolean;
-  lifestyle_factors?: any;
+  lifestyle_factors?: unknown;
 }) {
   try {
     // === Input Quality Gate ===
@@ -109,7 +109,6 @@ export async function submitQuestionnaire(formData: {
       .eq('phone', formData.phone)
       .single();
     const client = clientRes.data;
-    const _clientFetchErr = clientRes.error;
 
     let clientId;
     if (!client) {
@@ -279,7 +278,7 @@ export async function submitQuestionnaire(formData: {
           try {
             const cleanedText = resultText.trim().replace(/^```json/, '').replace(/```$/, '').trim();
             parsedResult = JSON.parse(cleanedText);
-          } catch(_e) {
+          } catch {
             console.error("JSON 解析失敗:", resultText);
             throw new Error("AI 分析格式錯誤");
           }
