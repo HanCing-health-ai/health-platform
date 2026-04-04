@@ -3,9 +3,8 @@
 import React, { useState, useCallback } from 'react';
 
 /**
- * BodyMapSelector — V1.5 C組 互動式身體部位標記元件
- * 取代舊版按鈕式選擇，改為前後人體圖（Front & Back）
- * 可複選23個特定部位
+ * BodyMapSelector — V1.5 C組 互動式身體部位標記元件 (Refined MedTech)
+ * 升級為科技風格、高亮光暈、適應暗色背景版本。
  */
 
 type SvgElementData =
@@ -26,8 +25,6 @@ export interface BodyMapSelectorProps {
   className?: string;
 }
 
-// === 正面區域 === 
-// 視覺左側為「右」，視覺右側為「左」
 const FRONT_REGIONS: BodyRegionDef[] = [
   { id: 'head-front', label: '頭部', view: 'front', elements: [{ type: 'ellipse', cx: 100, cy: 38, rx: 26, ry: 30 }] },
   { id: 'neck-front', label: '頸部', view: 'front', elements: [{ type: 'rect', x: 86, y: 70, width: 28, height: 18, rx: 5 }] },
@@ -49,10 +46,7 @@ const FRONT_REGIONS: BodyRegionDef[] = [
   { id: 'ankle-left-front', label: '左腳踝', view: 'front', elements: [{ type: 'ellipse', cx: 119, cy: 380, rx: 14, ry: 10 }] },
 ];
 
-// === 背面區域 ===
-// 視覺左側為「左」，視覺右側為「右」
 const BACK_REGIONS: BodyRegionDef[] = [
-  // 頭與頸部可做成通用，但這邊給獨立背面對應
   { id: 'head-back', label: '頭部', view: 'back', elements: [{ type: 'ellipse', cx: 100, cy: 38, rx: 26, ry: 30 }] },
   { id: 'neck-back', label: '頸部', view: 'back', elements: [{ type: 'rect', x: 86, y: 70, width: 28, height: 18, rx: 5 }] },
   { id: 'upper-back', label: '上背部', view: 'back', elements: [{ type: 'rect', x: 66, y: 90, width: 68, height: 50, rx: 4 }] },
@@ -74,15 +68,6 @@ const BACK_REGIONS: BodyRegionDef[] = [
   { id: 'ankle-right-back', label: '右腳踝', view: 'back', elements: [{ type: 'ellipse', cx: 119, cy: 410, rx: 14, ry: 10 }] },
 ];
 
-const COLORS = {
-  default: '#f1f5f9',    // slate-100
-  hover: '#e2e8f0',      // slate-200
-  selected: '#3b82f6',   // blue-500
-  selectedHover: '#2563eb', // blue-600
-  stroke: '#cbd5e1',     // slate-300
-  selectedStroke: '#1d4ed8', // blue-700
-} as const;
-
 export default function BodyMapSelector({ defaultSelected = [], onChange, className = '' }: BodyMapSelectorProps) {
   const [selected, setSelected] = useState<Set<string>>(() => new Set(defaultSelected));
   const [hoveredId, setHoveredId] = useState<string | null>(null);
@@ -101,60 +86,60 @@ export default function BodyMapSelector({ defaultSelected = [], onChange, classN
     });
   }, [onChange]);
 
-  // Combine regions logically so we can map easily
   const currentRegions = activeTab === 'front' ? FRONT_REGIONS : BACK_REGIONS;
-
-  const renderSvgElement = (el: SvgElementData, key: number, fill: string, stroke: string) => {
-    const common = {
-      fill, stroke, strokeWidth: 1.5,
-      style: { transition: 'fill 0.15s ease, stroke 0.15s ease' }
-    };
-    switch (el.type) {
-      case 'ellipse': return <ellipse key={key} cx={el.cx} cy={el.cy} rx={el.rx} ry={el.ry} {...common} />;
-      case 'rect': return <rect key={key} x={el.x} y={el.y} width={el.width} height={el.height} rx={el.rx ?? 0} {...common} />;
-      case 'path': return <path key={key} d={el.d} {...common} />;
-    }
-  };
-
   const selectedList = Array.from(selected);
 
   return (
-    <div className={`flex flex-col items-center bg-white rounded-2xl shadow-sm border border-slate-200 p-6 ${className}`}>
+    <div className={`flex flex-col items-center glass-panel rounded-3xl p-6 relative overflow-hidden ${className}`}>
       
-      {/* Tabs */}
-      <div className="flex bg-slate-100 p-1 rounded-xl mb-6 w-full max-w-xs">
+      {/* 科技背景紋路 */}
+      <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 1px, #fff 1px, #fff 2px), repeating-linear-gradient(90deg, transparent, transparent 1px, #fff 1px, #fff 2px)', backgroundSize: '20px 20px' }}></div>
+      
+      {/* 數量提示 */}
+      <div className="absolute top-4 right-4 bg-indigo-500/20 border border-[var(--accent-primary)] px-3 py-1.5 rounded-lg backdrop-blur-md flex items-center gap-2">
+        <div className="w-2 h-2 rounded-full bg-[var(--accent-secondary)] animate-pulse"></div>
+        <span className="text-[10px] font-black tracking-widest text-[var(--accent-secondary)] uppercase">ZONES: {selectedList.length}</span>
+      </div>
+
+      <div className="flex bg-[var(--bg-card)] border border-[var(--border)] p-1 rounded-xl mb-8 w-full max-w-xs relative z-10 shadow-inner">
         <button
           type="button"
           onClick={() => setActiveTab('front')}
-          className={`flex-1 py-2 px-4 rounded-lg text-sm font-bold transition-colors ${activeTab === 'front' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+          className={`flex-1 py-2 px-4 rounded-lg text-xs font-bold tracking-widest uppercase transition-all ${activeTab === 'front' ? 'bg-[var(--accent-primary)] text-white shadow-[0_0_15px_rgba(99,102,241,0.5)]' : 'text-[var(--text-secondary)] hover:text-white hover:bg-white/5'}`}
         >
-          正面部位
+          ANTERIOR
         </button>
         <button
           type="button"
           onClick={() => setActiveTab('back')}
-          className={`flex-1 py-2 px-4 rounded-lg text-sm font-bold transition-colors ${activeTab === 'back' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+          className={`flex-1 py-2 px-4 rounded-lg text-xs font-bold tracking-widest uppercase transition-all ${activeTab === 'back' ? 'bg-[var(--accent-primary)] text-white shadow-[0_0_15px_rgba(99,102,241,0.5)]' : 'text-[var(--text-secondary)] hover:text-white hover:bg-white/5'}`}
         >
-          背面部位
+          POSTERIOR
         </button>
       </div>
 
-      <div className="text-sm text-slate-500 mb-2 font-medium">請點擊標記不適部位（可複選）</div>
-
-      {/* SVG Image */}
-      <div className="relative w-full max-w-[240px] px-4">
-        <svg viewBox="0 0 200 450" className="w-full drop-shadow-sm select-none" role="img">
+      {/* SVG Image Container */}
+      <div className="relative w-full max-w-[240px] px-4 touch-none z-10 mx-auto group">
+        {/* Glow behind the svg */}
+        <div className="absolute inset-0 opacity-20 group-hover:opacity-30 blur-3xl transition-opacity bg-gradient-to-br from-indigo-500/30 to-cyan-500/30"></div>
+        
+        <svg viewBox="0 0 200 450" className="w-full relative z-10 drop-shadow-2xl select-none" role="img">
+          {/* Default ambient body silhouette (optional, could implement later if full body needed) */}
+          
           {currentRegions.map((region) => {
             const isSelected = selected.has(region.label);
             const isHovered = hoveredId === region.id;
             
-            let fill: string = COLORS.default;
-            let stroke: string = COLORS.stroke;
+            // Medtech specific colors
+            let fill = 'rgba(255,255,255,0.03)';
+            let stroke = 'rgba(255,255,255,0.1)';
+            
             if (isSelected) {
-              fill = isHovered ? COLORS.selectedHover : COLORS.selected;
-              stroke = COLORS.selectedStroke;
+              fill = 'var(--accent-primary)';
+              stroke = 'var(--accent-secondary)';
             } else if (isHovered) {
-              fill = COLORS.hover;
+              fill = 'rgba(255,255,255,0.15)';
+              stroke = 'rgba(255,255,255,0.3)';
             }
 
             return (
@@ -163,35 +148,43 @@ export default function BodyMapSelector({ defaultSelected = [], onChange, classN
                 role="button"
                 tabIndex={0}
                 onClick={() => toggleRegion(region.label)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    toggleRegion(region.label);
-                  }
-                }}
                 onMouseEnter={() => setHoveredId(region.id)}
                 onMouseLeave={() => setHoveredId(null)}
-                className="cursor-pointer outline-none focus:ring-2 focus:ring-indigo-300 active:scale-95 origin-center"
+                className="cursor-pointer outline-none transition-all origin-center"
+                style={{ 
+                  filter: isSelected ? 'drop-shadow(0 0 8px var(--accent-primary)) drop-shadow(0 0 12px var(--accent-secondary))' : (isHovered ? 'drop-shadow(0 0 5px rgba(255,255,255,0.4))' : 'none') 
+                }}
               >
-                {region.elements.map((el, i) => renderSvgElement(el, i, fill, stroke))}
+                {region.elements.map((el, i) => {
+                  const common = {
+                    fill, stroke, strokeWidth: 1.5,
+                    style: { transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)' }
+                  };
+                  switch (el.type) {
+                    case 'ellipse': return <ellipse key={i} cx={el.cx} cy={el.cy} rx={el.rx} ry={el.ry} {...common} />;
+                    case 'rect': return <rect key={i} x={el.x} y={el.y} width={el.width} height={el.height} rx={el.rx ?? 0} {...common} />;
+                    case 'path': return <path key={i} d={el.d} {...common} />;
+                  }
+                })}
               </g>
             );
           })}
         </svg>
       </div>
 
-      {/* Selected Tags */}
-      <div className="w-full mt-6">
-        <div className="text-sm font-bold text-slate-700 mb-3 border-b pb-2">已選取部位 ({selectedList.length})</div>
-        <div className="flex flex-wrap gap-2 min-h-[40px]">
+      {/* Selected Tags list below */}
+      <div className="w-full mt-8 relative z-10">
+        <div className="flex flex-wrap gap-2 justify-center min-h-[48px]">
           {selectedList.length === 0 ? (
-            <span className="text-sm text-slate-400 font-medium">尚無選取部位</span>
+            <span className="text-xs text-[var(--text-secondary)] tracking-widest font-bold border border-[var(--border)] px-4 py-2 rounded-full uppercase bg-[var(--bg-primary)]/50">
+              Awaiting Input
+            </span>
           ) : (
             selectedList.map(label => (
-              <span key={label} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-50 text-blue-700 text-sm font-bold border border-blue-200">
+              <span key={label} className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[var(--accent-primary)]/20 text-[var(--accent-secondary)] text-xs font-bold border border-[var(--accent-primary)]/50 shadow-[0_0_10px_rgba(99,102,241,0.2)] backdrop-blur-md">
                 {label}
-                <button type="button" onClick={() => toggleRegion(label)} className="text-blue-400 hover:text-blue-600 transition-colors">
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                <button type="button" onClick={() => toggleRegion(label)} className="text-[var(--accent-secondary)] hover:text-white transition-colors ml-1 focus:outline-none">
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
               </span>
             ))

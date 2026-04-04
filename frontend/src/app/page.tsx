@@ -10,7 +10,7 @@ import GuidedQuestionnaire, { QuestionnaireData } from "../components/GuidedQues
 
 export default function QuestionnairePage() {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">載入中...</div>}>
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-[var(--text-secondary)] font-medium tracking-widest">系統初始化中...</div>}>
       <Questionnaire />
     </Suspense>
   )
@@ -51,7 +51,7 @@ function Questionnaire() {
     }
 
     if (!isDevMode && !isStaffMode) {
-      const SESSION_DURATION = 30 * 24 * 60 * 60 * 1000; // 30天
+      const SESSION_DURATION = 30 * 24 * 60 * 60 * 1000;
       const stored = localStorage.getItem('conditionai_session');
       if (stored) {
         try {
@@ -95,6 +95,8 @@ function Questionnaire() {
     setIsOtpLoading(true);
     setOtpError("");
     
+    // Fallback or demo mode simulation could go here for EVERY8D migration prep
+    // Currently still uses Twilio fallback in action
     const { supabase } = await import('../lib/supabaseClient');
     const { error } = await supabase.auth.signInWithOtp({
       phone: formatPhoneForAuth(phone)
@@ -144,12 +146,7 @@ function Questionnaire() {
     }
     setOtpError("");
     
-    // 儲存 session
-    const sessionData = {
-      name: name,
-      phone: phone,
-      verified_at: Date.now()
-    };
+    const sessionData = { name, phone, verified_at: Date.now() };
     localStorage.setItem('conditionai_session', JSON.stringify(sessionData));
 
     setStep(1);
@@ -163,7 +160,6 @@ function Questionnaire() {
   };
 
   const handleSubmit = async (questionnaireData: QuestionnaireData) => {
-    // Gate 3: 24 Hour Duplicate Check
     const bypass = isDevMode || (typeof window !== 'undefined' && window.location.search.includes('bypass=true'));
     if (!bypass) {
       const { allowed, remainingMs } = canSubmitNow(phone);
@@ -191,20 +187,14 @@ function Questionnaire() {
       diet: questionnaireData.diet
     };
 
-    // To prevent empty text causing Gate 2 fail in legacy check. We generate a brief description
     const legacyDescription = `工作：${finalJob}。睡眠${questionnaireData.sleep}。運動：${questionnaireData.exercise}。感受：${questionnaireData.discomfort_type.join('、')}。${questionnaireData.chief_complaint}`;
 
     const result = await submitQuestionnaire({
-      name,
-      phone,
-      occupation_type: finalJob,
-      discomfort_areas: selectedAreas,
+      name, phone, occupation_type: finalJob, discomfort_areas: selectedAreas,
       primary_complaint: questionnaireData.chief_complaint || "無",
       lifestyle_description: legacyDescription,
       duration_type: questionnaireData.duration,
-      special_notes: "", // Not used specifically now, integrated
-      is_on_medication: false, // Omitted from new form, set false
-      is_test: isTest,
+      special_notes: "", is_on_medication: false, is_test: isTest,
       lifestyle_factors: lifestyleFactorsJson
     });
 
@@ -212,11 +202,10 @@ function Questionnaire() {
     
     if (result.success && result.responseId) {
       setLastSubmitTime(phone);
-      setSubmissionResult({ success: true, message: "資料已成功送出！系統正為您產生雙向洞察報告..." });
       router.push(`/result/${result.responseId}`);
     } else {
       setSubmissionResult({ success: false, message: `發生錯誤：${result.error}` });
-      setStep(0); // Optional: back to start or show error atop
+      setStep(0);
     }
   };
 
@@ -224,82 +213,97 @@ function Questionnaire() {
     return <LoadingState />;
   }
 
-  if (submissionResult?.success) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-        <div className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full text-center">
-          <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-          </div>
-          <h2 className="text-2xl font-bold text-slate-800 mb-2">分析處理中</h2>
-          <p className="text-slate-600 mb-6">{submissionResult.message}</p>
-        </div>
-      </div>
-    );
-  }
+  const STAGES = ['認證', '部位', '詳情'];
 
   return (
-    <div className="min-h-screen bg-slate-50 py-12 px-4 sm:px-6 lg:px-8 font-sans">
-      <div className="max-w-2xl mx-auto bg-white rounded-2xl shadow-xl shadow-slate-200 overflow-hidden border border-slate-100">
+    <div className="py-12 px-4 sm:px-6 lg:px-8 font-sans transition-all duration-500 ease-in-out">
+      <div className="max-w-2xl mx-auto glass-panel rounded-3xl shadow-2xl overflow-hidden text-[var(--text-primary)]">
         
         {/* Header Hero */}
-        <div className="bg-slate-900 px-8 py-8 text-center transition-all">
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white mb-2">
-            身體使用模式分析問卷
+        <div className="px-8 pt-10 pb-6 text-center border-b border-[var(--border)] relative overflow-hidden">
+          <div className="absolute -top-24 -left-24 w-64 h-64 bg-[var(--accent-primary)] rounded-full blur-[100px] opacity-20 pointer-events-none"></div>
+          <div className="absolute -bottom-24 -right-24 w-64 h-64 bg-[var(--accent-secondary)] rounded-full blur-[100px] opacity-20 pointer-events-none"></div>
+          
+          <h2 className="text-sm font-bold tracking-[0.25em] text-[var(--accent-secondary)] mb-2 uppercase">ConditionAI</h2>
+          <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-gradient mb-3 font-heading">
+            AI 驅動的身體使用模式分析
           </h1>
-          <p className="text-slate-300 text-xs sm:text-sm">
-            請花 1 分鐘告訴我們您的日常狀況，建立專屬雙向洞察分析。
+          <p className="text-[var(--text-secondary)] text-sm font-medium">
+            以精密運算透析您的日常累積，建立專屬調理洞察。
           </p>
 
-          {/* Stepper Wizard Indicator */}
-          <div className="mt-6 flex justify-center items-center gap-2 sm:gap-4 text-xs font-bold uppercase tracking-wider text-slate-400">
-             <span className={step >= 0 ? "text-indigo-400" : ""}>驗證</span>
-             <span className="w-4 h-px bg-slate-700"></span>
-             <span className={step >= 1 ? "text-indigo-400" : ""}>部位</span>
-             <span className="w-4 h-px bg-slate-700"></span>
-             <span className={step >= 2 ? "text-indigo-400" : ""}>詳細</span>
+          {/* MedTech Progress Bar */}
+          <div className="mt-8 flex items-center justify-center w-full max-w-sm mx-auto relative z-10">
+            <div className="absolute left-0 top-1/2 -translate-y-1/2 w-full h-1 bg-[var(--border)] rounded-full -z-10"></div>
+            <div className="absolute left-0 top-1/2 -translate-y-1/2 h-1 bg-gradient-to-r from-[var(--accent-secondary)] to-[var(--accent-primary)] rounded-full -z-10 transition-all duration-700 ease-[cubic-bezier(0.22,1,0.36,1)]" style={{ width: `${step * 50}%` }}></div>
+            
+            <div className="flex justify-between w-full">
+              {STAGES.map((label, idx) => {
+                const isActive = step >= idx;
+                const isCurrent = step === idx;
+                return (
+                  <div key={idx} className="flex flex-col items-center gap-2">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-500 shadow-lg ${isActive ? 'bg-[var(--accent-primary)] text-white glow-primary' : 'bg-[var(--bg-card)] text-[var(--text-secondary)] border border-[var(--border)]'}`}>
+                      {isActive ? '✓' : idx + 1}
+                    </div>
+                    <span className={`text-[10px] font-bold tracking-wider uppercase ${isCurrent ? 'text-white' : 'text-[var(--text-secondary)]'}`}>{label}</span>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
 
-        <div className="px-6 py-8 sm:px-10 space-y-6">
+        <div className="px-6 py-8 sm:px-10 min-h-[400px]">
           {/* Step 0: Basic Info & OTP */}
           {step === 0 && (
-            <div className="animate-in fade-in slide-in-from-right-4 duration-500">
-              <h2 className="text-xl font-bold text-slate-800 mb-6">基本資料驗證</h2>
-              <div className="space-y-5">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">稱呼 <span className="text-red-500">*</span></label>
-                  <input type="text" value={name} onChange={e => setName(e.target.value)} className="w-full rounded-lg border-slate-200 border-2 p-3 focus:border-indigo-500 focus:ring-0 text-slate-800 font-medium" placeholder="王小明" />
+            <div className="animate-in fade-in slide-in-from-right-8 duration-700">
+              <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
+                <span className="w-1.5 h-6 bg-[var(--accent-secondary)] rounded-full inline-block"></span>
+                啟動安全連線
+              </h2>
+              
+              {submissionResult?.success === false && (
+                <div className="mb-6 p-4 rounded-xl border border-red-500/30 bg-red-500/10 text-red-400 text-sm font-medium">
+                  {submissionResult.message}
                 </div>
-                <div className="flex flex-col gap-2">
-                  <label className="block text-sm font-medium text-slate-700 mb-1">聯絡電話 <span className="text-red-500">*</span></label>
-                  <div className="flex gap-2">
-                    <input readOnly={isPhoneVerified} pattern="^09\d{8}$" type="tel" value={phone} onChange={e => {setPhone(e.target.value); setIsOtpSent(false); setOtpError("");}} className={`w-full rounded-lg border-2 p-3 focus:border-indigo-500 focus:ring-0 font-medium ${isPhoneVerified ? 'bg-green-50 border-green-200 text-green-800' : 'border-slate-200 text-slate-800'}`} placeholder="0912345678" />
+              )}
+
+              <div className="space-y-8">
+                <div>
+                  <label className="block text-xs font-bold tracking-widest text-[var(--text-secondary)] mb-2 uppercase">Client Name / 稱呼</label>
+                  <input type="text" value={name} onChange={e => setName(e.target.value)} className="w-full input-underline p-3 text-lg font-bold" placeholder="王小明" />
+                </div>
+                
+                <div className="flex flex-col gap-3">
+                  <label className="block text-xs font-bold tracking-widest text-[var(--text-secondary)] mb-1 uppercase">Comm Link / 聯絡電話</label>
+                  <div className="flex gap-4 items-end">
+                    <input readOnly={isPhoneVerified} pattern="^09\d{8}$" type="tel" value={phone} onChange={e => {setPhone(e.target.value); setIsOtpSent(false); setOtpError("");}} className={`w-full input-underline p-3 text-lg font-bold tracking-widest transition-colors ${isPhoneVerified ? 'text-emerald-400 border-emerald-500/50' : 'text-white'}`} placeholder="0912345678" />
                     {!isPhoneVerified && (
-                      <button type="button" onClick={handleSendOtp} disabled={isOtpLoading || !phone.match(/^09\d{8}$/)} className="shrink-0 bg-slate-100 text-slate-700 px-4 py-2 rounded-lg font-bold border-2 border-slate-200 hover:bg-slate-200 transition-all disabled:opacity-50 text-sm">
-                        {isOtpLoading ? '請稍候' : (isOtpSent ? '重新發送' : '發送驗證碼')}
+                      <button type="button" onClick={handleSendOtp} disabled={isOtpLoading || !phone.match(/^09\d{8}$/)} className="shrink-0 bg-[var(--bg-glass)] text-[var(--accent-secondary)] border border-[var(--accent-secondary)] px-5 py-3 rounded-lg font-bold hover:bg-[var(--accent-secondary)] hover:text-white transition-all disabled:opacity-30 disabled:border-slate-700 disabled:text-slate-500 text-sm glow-primary-hover">
+                        {isOtpLoading ? 'TX...' : (isOtpSent ? 'RESEND' : 'TRANSMIT')}
                       </button>
                     )}
                   </div>
-                  {isPhoneVerified && <p className="text-sm font-bold text-green-600 flex items-center gap-1">✅ 手機已成功驗證</p>}
+                  {isPhoneVerified && <p className="text-xs font-bold text-emerald-400 tracking-wider">◆ VERIFIED</p>}
                   
                   {isOtpSent && !isPhoneVerified && (
-                    <div className="mt-2 p-4 bg-indigo-50 border border-indigo-100 rounded-xl space-y-3">
-                      <label className="block text-sm font-medium text-indigo-900">輸入收到的 6 位數簡訊驗證碼</label>
-                      <div className="flex gap-2">
-                        <input type="text" value={otp} onChange={e => setOtp(e.target.value)} maxLength={6} className="w-full rounded-lg border-indigo-200 border p-2 text-center text-xl tracking-[0.25em] font-bold text-indigo-900 focus:ring-indigo-500" placeholder="123456" />
-                        <button type="button" onClick={handleVerifyOtp} disabled={isOtpLoading || otp.length < 6} className="bg-indigo-600 text-white px-5 py-2 rounded-lg font-bold hover:bg-indigo-700 active:scale-95 disabled:opacity-50">
-                          確認
+                    <div className="mt-4 p-5 bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl space-y-4 shadow-inner">
+                      <label className="block text-xs font-bold text-[var(--accent-primary)] uppercase tracking-wider">Access Code / 簡訊驗證碼</label>
+                      <div className="flex gap-3">
+                        <input type="text" value={otp} onChange={e => setOtp(e.target.value)} maxLength={6} className="w-full rounded-lg bg-[var(--bg-primary)] border border-[var(--border)] p-3 text-center text-2xl tracking-[0.5em] font-black text-white focus:border-[var(--accent-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--accent-primary)]" placeholder="------" />
+                        <button type="button" onClick={handleVerifyOtp} disabled={isOtpLoading || otp.length < 6} className="bg-[var(--accent-primary)] text-white px-6 py-3 rounded-lg font-black hover:bg-indigo-500 active:scale-95 disabled:opacity-30 transition-all glow-primary">
+                          VERIFY
                         </button>
                       </div>
                     </div>
                   )}
-                  {otpError && <p className="text-sm font-bold text-red-500 mt-1">{otpError}</p>}
+                  {otpError && <p className="text-xs font-bold text-red-400 mt-1">{otpError}</p>}
                 </div>
 
-                <div className="pt-6">
-                  <button type="button" onClick={goToStep1} disabled={!isPhoneVerified || !name.trim()} className="w-full bg-slate-900 text-white py-4 rounded-xl font-bold text-lg disabled:opacity-30 disabled:cursor-not-allowed hover:bg-slate-800 transition-all active:scale-[0.98]">
-                    開始填寫部位
+                <div className="pt-8">
+                  <button type="button" onClick={goToStep1} disabled={!isPhoneVerified || !name.trim()} className="w-full bg-[var(--accent-primary)] text-white py-4 rounded-xl font-black text-lg tracking-widest disabled:opacity-30 hover:bg-indigo-500 transition-all active:scale-95 glow-primary-hover uppercase">
+                    Initialize Scan
                   </button>
                 </div>
               </div>
@@ -308,47 +312,43 @@ function Questionnaire() {
 
           {/* Step 1: Body Map Selector */}
           {step === 1 && (
-            <div className="animate-in fade-in slide-in-from-right-4 duration-500">
-              <div className="mb-4 flex items-center justify-between">
-                <button type="button" onClick={() => setStep(0)} className="text-sm font-bold text-slate-400 hover:text-slate-600 flex items-center gap-1">
-                  ← 返回修改資料
+            <div className="animate-in fade-in slide-in-from-right-8 duration-700">
+              <div className="mb-6 flex items-center justify-between border-b border-[var(--border)] pb-4">
+                <button type="button" onClick={() => setStep(0)} className="text-xs font-bold tracking-wider uppercase text-[var(--text-secondary)] hover:text-white flex items-center gap-2 transition-colors">
+                  <span className="text-lg">←</span> Configure
                 </button>
                 {isPhoneVerified && (
                   <button type="button" onClick={() => {
                     localStorage.removeItem('conditionai_session');
-                    setIsPhoneVerified(false);
-                    setPhone("");
-                    setOtp("");
-                    setIsOtpSent(false);
-                    setStep(0);
-                  }} className="text-xs font-semibold text-slate-500 border border-slate-200 px-3 py-1.5 rounded bg-white hover:bg-slate-50 transition-colors">
-                    重新驗證 / 登出
+                    setIsPhoneVerified(false); setPhone(""); setOtp(""); setIsOtpSent(false); setStep(0);
+                  }} className="text-[10px] uppercase font-bold tracking-wider text-[var(--accent-secondary)] border border-[var(--accent-secondary)]/30 px-3 py-1.5 rounded-full hover:bg-[var(--accent-secondary)] hover:text-white transition-all">
+                    Reset Session
                   </button>
                 )}
               </div>
               <BodyMapSelector 
                 defaultSelected={selectedAreas} 
                 onChange={setSelectedAreas}
-                className="mb-8"
+                className="mb-10 !bg-transparent !border-none !shadow-none !p-0"
               />
               <button 
                 type="button" 
                 onClick={goToStep2} 
-                className={`w-full py-4 rounded-xl font-bold text-lg text-white transition-all active:scale-[0.98]
-                  ${selectedAreas.length > 0 ? 'bg-slate-900 hover:bg-slate-800 shadow-xl' : 'bg-slate-300 cursor-not-allowed'}
+                className={`w-full py-4 rounded-xl font-black text-lg uppercase tracking-widest text-white transition-all active:scale-[0.98]
+                  ${selectedAreas.length > 0 ? 'bg-[var(--accent-primary)] hover:bg-indigo-500 glow-primary-hover' : 'bg-slate-800 text-slate-500 cursor-not-allowed'}
                 `}
               >
-                {selectedAreas.length > 0 ? '下一步：詳細狀況' : '請至少點選一個部位'}
+                {selectedAreas.length > 0 ? 'Proceed To Details' : 'Select Zones First'}
               </button>
             </div>
           )}
 
           {/* Step 2: Guided Questionnaire */}
           {step === 2 && (
-            <div className="animate-in fade-in slide-in-from-right-4 duration-500">
-              <div className="mb-6">
-                <button type="button" onClick={() => setStep(1)} className="text-sm font-bold text-slate-400 hover:text-slate-600 flex items-center gap-1">
-                  ← 回到身體圖
+            <div className="animate-in fade-in slide-in-from-right-8 duration-700">
+              <div className="mb-6 border-b border-[var(--border)] pb-4">
+                <button type="button" onClick={() => setStep(1)} className="text-xs font-bold tracking-wider uppercase text-[var(--text-secondary)] hover:text-white flex items-center gap-2 transition-colors">
+                  <span className="text-lg">←</span> Scan Zones
                 </button>
               </div>
               <GuidedQuestionnaire 
@@ -356,11 +356,6 @@ function Questionnaire() {
                 onSubmit={handleSubmit}
                 isSubmitting={isSubmitting}
               />
-              {submissionResult?.success === false && (
-                <div className="mt-4 p-4 bg-red-50 text-red-600 rounded-lg text-sm font-medium border border-red-100">
-                  {submissionResult.message}
-                </div>
-              )}
             </div>
           )}
         </div>
@@ -368,15 +363,16 @@ function Questionnaire() {
 
       {/* Gate 3 Modal */}
       {showGate3Modal && (
-        <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl">
-            <h3 className="text-xl font-bold text-slate-800 mb-2">分析頻率限制</h3>
-            <p className="text-slate-600 mb-4">這支門號今日已完成過分析，明天再來查看新的建議吧。</p>
-            <div className="bg-amber-50 rounded-lg p-3 text-sm text-amber-800 font-bold mb-6 text-center border border-amber-200">
-              距離下次分析還有 {gate3RemainingTime}
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-in fade-in">
+          <div className="glass-panel border-red-500/30 rounded-3xl p-8 max-w-sm w-full shadow-[0_0_50px_rgba(239,68,68,0.15)] relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-red-600 to-orange-500"></div>
+            <h3 className="text-xl font-black text-white mb-3">SYSTEM LIMIT REACHED</h3>
+            <p className="text-[var(--text-secondary)] mb-6 text-sm leading-relaxed">您的通訊識別碼今日已執行過精密分析，為維持全網效能，請於明日再進行掃描。</p>
+            <div className="bg-red-950/40 rounded-xl p-4 text-xs tracking-wider text-red-400 font-bold mb-8 text-center border border-red-500/20">
+              COOLDOWN REMAINING: <span className="text-white">{gate3RemainingTime}</span>
             </div>
-            <button onClick={() => setShowGate3Modal(false)} className="w-full py-3 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 active:scale-95 transition-all">
-              了解
+            <button onClick={() => setShowGate3Modal(false)} className="w-full py-4 bg-[var(--text-primary)] text-black rounded-xl font-black hover:bg-white active:scale-95 transition-all uppercase tracking-widest shadow-[0_0_20px_rgba(255,255,255,0.3)]">
+              Acknowledge
             </button>
           </div>
         </div>

@@ -3,25 +3,74 @@
 @tailwind utilities;
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --bg-primary: #0a0f1e;        /* 深夜藍黑，主背景 */
+  --bg-card: #111827;           /* 卡片背景 */
+  --bg-glass: rgba(255,255,255,0.04); /* 玻璃質感 */
+  --accent-primary: #6366f1;    /* 靛紫，主強調色 */
+  --accent-secondary: #06b6d4;  /* 青藍，次強調色 */
+  --accent-glow: rgba(99,102,241,0.3); /* 光暈效果 */
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --border: rgba(255,255,255,0.08);
 }
 
 body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  color: var(--text-primary);
+  background-color: var(--bg-primary);
+  /* 點陣或網格背景 */
+  background-image: 
+    radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.05) 1px, transparent 0),
+    radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.02) 1px, transparent 0);
+  background-size: 24px 24px, 96px 96px;
+  font-family: var(--font-noto-tc), sans-serif;
+}
+
+h1, h2, h3, h4, h5, h6, .font-heading {
+  font-family: var(--font-sora), var(--font-noto-tc), sans-serif;
 }
 
 @layer utilities {
   .text-balance {
     text-wrap: balance;
   }
+}
+
+/* Custom Glass & Glow Utilities */
+.glass-panel {
+  background: var(--bg-glass);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border);
+}
+
+.glow-primary {
+  box-shadow: 0 0 20px var(--accent-glow);
+}
+
+.glow-primary-hover:hover {
+  box-shadow: 0 0 25px var(--accent-glow);
+  transform: translateY(-1px);
+  transition: all 0.3s ease;
+}
+
+.text-gradient {
+  background: linear-gradient(135deg, #f8fafc 0%, #cbd5e1 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.input-underline {
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid var(--border);
+  border-radius: 0;
+  transition: all 0.3s ease;
+  color: var(--text-primary);
+}
+
+.input-underline:focus {
+  border-bottom-color: var(--accent-primary);
+  box-shadow: 0 4px 10px -6px var(--accent-glow);
+  outline: none;
 }
