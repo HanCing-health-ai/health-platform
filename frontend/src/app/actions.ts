@@ -40,6 +40,7 @@ export async function submitQuestionnaire(formData: {
   duration_type: string;
   special_notes: string;
   is_on_medication: boolean;
+  is_test?: boolean;
 }) {
   try {
     // === Input Quality Gate ===

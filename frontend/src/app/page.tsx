@@ -4,6 +4,7 @@ import { useState, useRef, Suspense, useEffect } from "react";
 import { submitQuestionnaire } from "./actions";
 import { canSubmitNow, setLastSubmitTime } from "../lib/submitGuard";
 import { useSearchParams, useRouter } from "next/navigation";
+import LoadingState from "../components/LoadingState";
 
 const bodyParts = [
   "頭部/後腦", "頸部 (脖子)", "肩部", "上背部 (膏肓)",
@@ -213,6 +214,10 @@ function Questionnaire() {
       setSubmissionResult({ success: false, message: `發生錯誤：${result.error}` });
     }
   };
+
+  if (isSubmitting) {
+    return <LoadingState />;
+  }
 
   if (submissionResult?.success) {
     return (
