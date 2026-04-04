@@ -49,6 +49,27 @@ function Questionnaire() {
         });
       });
     }
+
+    if (!isDevMode && !isStaffMode) {
+      const SESSION_DURATION = 30 * 24 * 60 * 60 * 1000; // 30天
+      const stored = localStorage.getItem('conditionai_session');
+      if (stored) {
+        try {
+          const session = JSON.parse(stored);
+          const isValid = Date.now() - session.verified_at < SESSION_DURATION;
+          if (isValid) {
+            setName(session.name || "");
+            setPhone(session.phone || "");
+            setIsPhoneVerified(true);
+            setStep(1);
+          } else {
+            localStorage.removeItem('conditionai_session');
+          }
+        } catch {
+          localStorage.removeItem('conditionai_session');
+        }
+      }
+    }
   }, [isDevMode, isStaffMode]);
   
   // Step 1 Data
@@ -122,6 +143,15 @@ function Questionnaire() {
       return;
     }
     setOtpError("");
+    
+    // 儲存 session
+    const sessionData = {
+      name: name,
+      phone: phone,
+      verified_at: Date.now()
+    };
+    localStorage.setItem('conditionai_session', JSON.stringify(sessionData));
+
     setStep(1);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -279,10 +309,22 @@ function Questionnaire() {
           {/* Step 1: Body Map Selector */}
           {step === 1 && (
             <div className="animate-in fade-in slide-in-from-right-4 duration-500">
-              <div className="mb-4">
+              <div className="mb-4 flex items-center justify-between">
                 <button type="button" onClick={() => setStep(0)} className="text-sm font-bold text-slate-400 hover:text-slate-600 flex items-center gap-1">
                   ← 返回修改資料
                 </button>
+                {isPhoneVerified && (
+                  <button type="button" onClick={() => {
+                    localStorage.removeItem('conditionai_session');
+                    setIsPhoneVerified(false);
+                    setPhone("");
+                    setOtp("");
+                    setIsOtpSent(false);
+                    setStep(0);
+                  }} className="text-xs font-semibold text-slate-500 border border-slate-200 px-3 py-1.5 rounded bg-white hover:bg-slate-50 transition-colors">
+                    重新驗證 / 登出
+                  </button>
+                )}
               </div>
               <BodyMapSelector 
                 defaultSelected={selectedAreas} 
