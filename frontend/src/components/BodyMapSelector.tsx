@@ -1,23 +1,12 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
+import Model, { IMuscleStats, Muscle } from 'react-body-highlighter';
 
 /**
- * BodyMapSelector — V1.5 C組 互動式身體部位標記元件 (Refined MedTech)
- * 升級為科技風格、高亮光暈、適應暗色背景版本。
+ * BodyMapSelector — V1.5 C組 互動式身體部位標記元件 (High Fidelity Edition)
+ * 使用 react-body-highlighter 提供解剖學精確的肌肉輪廓。
  */
-
-type SvgElementData =
-  | { type: 'ellipse'; cx: number; cy: number; rx: number; ry: number }
-  | { type: 'rect'; x: number; y: number; width: number; height: number; rx?: number }
-  | { type: 'path'; d: string };
-
-interface BodyRegionDef {
-  id: string;
-  label: string;
-  view: 'front' | 'back';
-  elements: SvgElementData[];
-}
 
 export interface BodyMapSelectorProps {
   defaultSelected?: string[];
@@ -25,171 +14,199 @@ export interface BodyMapSelectorProps {
   className?: string;
 }
 
-const FRONT_REGIONS: BodyRegionDef[] = [
-  { id: 'head-front', label: '頭部', view: 'front', elements: [{ type: 'ellipse', cx: 100, cy: 38, rx: 26, ry: 30 }] },
-  { id: 'neck-front', label: '頸部', view: 'front', elements: [{ type: 'rect', x: 86, y: 70, width: 28, height: 18, rx: 5 }] },
-  { id: 'shoulder-right', label: '右肩', view: 'front', elements: [{ type: 'path', d: 'M64,90 L36,98 L32,116 L64,112 Z' }] },
-  { id: 'shoulder-left', label: '左肩', view: 'front', elements: [{ type: 'path', d: 'M136,90 L164,98 L168,116 L136,112 Z' }] },
-  { id: 'chest', label: '胸部', view: 'front', elements: [{ type: 'rect', x: 66, y: 90, width: 68, height: 50, rx: 4 }] },
-  { id: 'abs', label: '腹部', view: 'front', elements: [{ type: 'rect', x: 68, y: 144, width: 64, height: 50, rx: 4 }] },
-  { id: 'arm-right-front', label: '右手臂', view: 'front', elements: [{ type: 'path', d: 'M32,118 L22,190 L42,196 L62,112 Z' }] },
-  { id: 'arm-left-front', label: '左手臂', view: 'front', elements: [{ type: 'path', d: 'M168,118 L178,190 L158,196 L138,112 Z' }] },
-  { id: 'wrist-right-front', label: '右手腕', view: 'front', elements: [{ type: 'path', d: 'M22,198 L16,226 L36,232 L42,198 Z' }] },
-  { id: 'wrist-left-front', label: '左手腕', view: 'front', elements: [{ type: 'path', d: 'M178,198 L184,226 L164,232 L158,198 Z' }] },
-  { id: 'thigh-right-front', label: '右大腿', view: 'front', elements: [{ type: 'rect', x: 64, y: 198, width: 34, height: 80, rx: 6 }] },
-  { id: 'thigh-left-front', label: '左大腿', view: 'front', elements: [{ type: 'rect', x: 102, y: 198, width: 34, height: 80, rx: 6 }] },
-  { id: 'knee-right', label: '右膝', view: 'front', elements: [{ type: 'ellipse', cx: 81, cy: 290, rx: 15, ry: 12 }] },
-  { id: 'knee-left', label: '左膝', view: 'front', elements: [{ type: 'ellipse', cx: 119, cy: 290, rx: 15, ry: 12 }] },
-  { id: 'calf-right-front', label: '右小腿', view: 'front', elements: [{ type: 'rect', x: 68, y: 306, width: 26, height: 60, rx: 6 }] },
-  { id: 'calf-left-front', label: '左小腿', view: 'front', elements: [{ type: 'rect', x: 106, y: 306, width: 26, height: 60, rx: 6 }] },
-  { id: 'ankle-right-front', label: '右腳踝', view: 'front', elements: [{ type: 'ellipse', cx: 81, cy: 380, rx: 14, ry: 10 }] },
-  { id: 'ankle-left-front', label: '左腳踝', view: 'front', elements: [{ type: 'ellipse', cx: 119, cy: 380, rx: 14, ry: 10 }] },
-];
+/* ============================================================
+ * 肌肉對映字典 (肌肉名稱 -> 繁體中文標籤)
+ * ============================================================ */
+const MUSCLE_TO_LABEL: Record<string, string> = {
+  // Front
+  head: '頭部',
+  neck: '頸部',
+  'front-deltoids': '肩部',
+  'back-deltoids': '肩部',
+  chest: '胸部',
+  abs: '腹部',
+  obliques: '腰部/側腹',
+  biceps: '手臂',
+  triceps: '手臂',
+  forearm: '手腕',
+  quadriceps: '大腿',
+  abductors: '大腿外側',
+  adductor: '大腿內側',
+  knees: '膝部',
+  calves: '小腿',
+  
+  // Back
+  trapezius: '上背部',
+  'upper-back': '上背部',
+  'lower-back': '下背部',
+  gluteal: '臀部',
+  hamstring: '大腿後側',
+  'left-soleus': '腳踝/腳跟',
+  'right-soleus': '腳踝/腳跟',
+};
 
-const BACK_REGIONS: BodyRegionDef[] = [
-  { id: 'head-back', label: '頭部', view: 'back', elements: [{ type: 'ellipse', cx: 100, cy: 38, rx: 26, ry: 30 }] },
-  { id: 'neck-back', label: '頸部', view: 'back', elements: [{ type: 'rect', x: 86, y: 70, width: 28, height: 18, rx: 5 }] },
-  { id: 'upper-back', label: '上背部', view: 'back', elements: [{ type: 'rect', x: 66, y: 90, width: 68, height: 50, rx: 4 }] },
-  { id: 'lower-back', label: '下背部', view: 'back', elements: [{ type: 'rect', x: 68, y: 144, width: 64, height: 40, rx: 4 }] },
-  { id: 'waist', label: '腰部', view: 'back', elements: [{ type: 'rect', x: 68, y: 188, width: 64, height: 20, rx: 4 }] },
-  { id: 'hip-left', label: '左臀', view: 'back', elements: [{ type: 'path', d: 'M68,212 L60,250 L84,250 L100,212 Z' }] },
-  { id: 'hip-right', label: '右臀', view: 'back', elements: [{ type: 'path', d: 'M132,212 L140,250 L116,250 L100,212 Z' }] },
-  { id: 'shoulder-left-back', label: '左肩', view: 'back', elements: [{ type: 'path', d: 'M64,90 L36,98 L32,116 L64,112 Z' }] },
-  { id: 'shoulder-right-back', label: '右肩', view: 'back', elements: [{ type: 'path', d: 'M136,90 L164,98 L168,116 L136,112 Z' }] },
-  { id: 'arm-left-back', label: '左手臂', view: 'back', elements: [{ type: 'path', d: 'M32,118 L22,190 L42,196 L62,112 Z' }] },
-  { id: 'arm-right-back', label: '右手臂', view: 'back', elements: [{ type: 'path', d: 'M168,118 L178,190 L158,196 L138,112 Z' }] },
-  { id: 'wrist-left-back', label: '左手腕', view: 'back', elements: [{ type: 'path', d: 'M22,198 L16,226 L36,232 L42,198 Z' }] },
-  { id: 'wrist-right-back', label: '右手腕', view: 'back', elements: [{ type: 'path', d: 'M178,198 L184,226 L164,232 L158,198 Z' }] },
-  { id: 'thigh-left-back', label: '左大腿', view: 'back', elements: [{ type: 'rect', x: 64, y: 254, width: 34, height: 80, rx: 6 }] },
-  { id: 'thigh-right-back', label: '右大腿', view: 'back', elements: [{ type: 'rect', x: 102, y: 254, width: 34, height: 80, rx: 6 }] },
-  { id: 'calf-left-back', label: '左小腿', view: 'back', elements: [{ type: 'rect', x: 68, y: 340, width: 26, height: 60, rx: 6 }] },
-  { id: 'calf-right-back', label: '右小腿', view: 'back', elements: [{ type: 'rect', x: 106, y: 340, width: 26, height: 60, rx: 6 }] },
-  { id: 'ankle-left-back', label: '左腳踝', view: 'back', elements: [{ type: 'ellipse', cx: 81, cy: 410, rx: 14, ry: 10 }] },
-  { id: 'ankle-right-back', label: '右腳踝', view: 'back', elements: [{ type: 'ellipse', cx: 119, cy: 410, rx: 14, ry: 10 }] },
-];
+// 逆向查詢：由標籤獲取所有對應的肌肉 ID
+const LABEL_TO_MUSCLES = Object.entries(MUSCLE_TO_LABEL).reduce(
+  (acc, [muscle, label]) => {
+    if (!acc[label]) acc[label] = [];
+    acc[label].push(muscle);
+    return acc;
+  },
+  {} as Record<string, string[]>
+);
 
 export default function BodyMapSelector({ defaultSelected = [], onChange, className = '' }: BodyMapSelectorProps) {
-  const [selected, setSelected] = useState<Set<string>>(() => new Set(defaultSelected));
-  const [hoveredId, setHoveredId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'front' | 'back'>('front');
+  // 保存的是「標籤名稱」，如 ['頭部', '肩部']
+  const [selectedLabels, setSelectedLabels] = useState<Set<string>>(
+    () => new Set(defaultSelected)
+  );
 
-  const toggleRegion = useCallback((label: string) => {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(label)) {
-        next.delete(label);
-      } else {
-        next.add(label);
-      }
-      onChange?.(Array.from(next));
-      return next;
+  const [activeTab, setActiveTab] = useState<'anterior' | 'posterior'>('anterior');
+
+  /**
+   * 當點擊肌肉時，切換該肌肉所屬標籤的選取狀態
+   */
+  const handleMuscleClick = useCallback(
+    (stats: IMuscleStats) => {
+      const muscleName: string = stats.muscle;
+      const label = MUSCLE_TO_LABEL[muscleName];
+
+      if (!label) return;
+
+      setSelectedLabels((prev) => {
+        const next = new Set(prev);
+        if (next.has(label)) {
+          next.delete(label);
+        } else {
+          next.add(label);
+        }
+        onChange?.(Array.from(next));
+        return next;
+      });
+    },
+    [onChange]
+  );
+
+  /**
+   * 將選取的標籤轉換為 Model 元件所需的亮顯資料格式
+   */
+  const highlightedData = useMemo(() => {
+    const musclesToHighlight: Muscle[] = [];
+    selectedLabels.forEach((label) => {
+      const muscles = LABEL_TO_MUSCLES[label] || [];
+      musclesToHighlight.push(...(muscles as Muscle[]));
     });
-  }, [onChange]);
 
-  const currentRegions = activeTab === 'front' ? FRONT_REGIONS : BACK_REGIONS;
-  const selectedList = Array.from(selected);
+    return [
+      {
+        name: 'Selected',
+        muscles: musclesToHighlight,
+      },
+    ];
+  }, [selectedLabels]);
+
+  const labelsArray = Array.from(selectedLabels);
 
   return (
     <div className={`flex flex-col items-center glass-panel rounded-3xl p-6 relative overflow-hidden ${className}`}>
       
-      {/* 科技背景紋路 */}
-      <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 1px, #fff 1px, #fff 2px), repeating-linear-gradient(90deg, transparent, transparent 1px, #fff 1px, #fff 2px)', backgroundSize: '20px 20px' }}></div>
+      {/* 科技背景紋路 (裝飾) */}
+      <div className="absolute inset-0 opacity-[0.03] pointer-events-none" 
+           style={{ backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 1px, #fff 1px, #fff 2px), repeating-linear-gradient(90deg, transparent, transparent 1px, #fff 1px, #fff 2px)', backgroundSize: '20px 20px' }} />
       
-      {/* 數量提示 */}
-      <div className="absolute top-4 right-4 bg-indigo-500/20 border border-[var(--accent-primary)] px-3 py-1.5 rounded-lg backdrop-blur-md flex items-center gap-2">
-        <div className="w-2 h-2 rounded-full bg-[var(--accent-secondary)] animate-pulse"></div>
-        <span className="text-[10px] font-black tracking-widest text-[var(--accent-secondary)] uppercase">ZONES: {selectedList.length}</span>
+      {/* 數量指示器 */}
+      <div className="absolute top-6 right-6 flex items-center gap-2 bg-indigo-500/10 border border-indigo-500/20 px-3 py-1.5 rounded-full backdrop-blur-sm z-20">
+        <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse shadow-[0_0_8px_#22d3ee]"></div>
+        <span className="text-[10px] font-black tracking-widest text-cyan-400 uppercase">
+          Zones: {labelsArray.length}
+        </span>
       </div>
 
-      <div className="flex bg-[var(--bg-card)] border border-[var(--border)] p-1 rounded-xl mb-8 w-full max-w-xs relative z-10 shadow-inner">
+      {/* 視角切換器 (Glassmorphism Tabs) */}
+      <div className="flex bg-slate-950/40 border border-white/5 p-1 rounded-2xl mb-8 w-full max-w-xs relative z-10 shadow-inner backdrop-blur-md">
         <button
           type="button"
-          onClick={() => setActiveTab('front')}
-          className={`flex-1 py-2 px-4 rounded-lg text-xs font-bold tracking-widest uppercase transition-all ${activeTab === 'front' ? 'bg-[var(--accent-primary)] text-white shadow-[0_0_15px_rgba(99,102,241,0.5)]' : 'text-[var(--text-secondary)] hover:text-white hover:bg-white/5'}`}
+          onClick={() => setActiveTab('anterior')}
+          className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-black tracking-[0.15em] uppercase transition-all duration-380 ${
+            activeTab === 'anterior' 
+              ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-[0_0_20px_rgba(99,102,241,0.4)] scale-[1.02]' 
+              : 'text-slate-500 hover:text-slate-300'
+          }`}
         >
-          ANTERIOR
+          Anterior 正面
         </button>
         <button
           type="button"
-          onClick={() => setActiveTab('back')}
-          className={`flex-1 py-2 px-4 rounded-lg text-xs font-bold tracking-widest uppercase transition-all ${activeTab === 'back' ? 'bg-[var(--accent-primary)] text-white shadow-[0_0_15px_rgba(99,102,241,0.5)]' : 'text-[var(--text-secondary)] hover:text-white hover:bg-white/5'}`}
+          onClick={() => setActiveTab('posterior')}
+          className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-black tracking-[0.15em] uppercase transition-all duration-380 ${
+            activeTab === 'posterior' 
+              ? 'bg-gradient-to-r from-purple-600 to-fuchsia-600 text-white shadow-[0_0_20px_rgba(168,85,247,0.4)] scale-[1.02]' 
+              : 'text-slate-500 hover:text-slate-300'
+          }`}
         >
-          POSTERIOR
+          Posterior 背面
         </button>
       </div>
 
-      {/* SVG Image Container */}
-      <div className="relative w-full max-w-[240px] px-4 touch-none z-10 mx-auto group">
-        {/* Glow behind the svg */}
-        <div className="absolute inset-0 opacity-20 group-hover:opacity-30 blur-3xl transition-opacity bg-gradient-to-br from-indigo-500/30 to-cyan-500/30"></div>
+      {/* 互動式人體模型載體 */}
+      <div className="relative w-full max-w-[280px] px-2 py-4 mb-6 z-10 group">
+        {/* 動態光暈效果 (隨視角變色) */}
+        <div className={`absolute inset-0 blur-[60px] opacity-10 transition-colors duration-1000 pointer-events-none ${
+          activeTab === 'anterior' ? 'bg-blue-500' : 'bg-purple-500'
+        }`} />
         
-        <svg viewBox="0 0 200 450" className="w-full relative z-10 drop-shadow-2xl select-none" role="img">
-          {/* Default ambient body silhouette (optional, could implement later if full body needed) */}
-          
-          {currentRegions.map((region) => {
-            const isSelected = selected.has(region.label);
-            const isHovered = hoveredId === region.id;
-            
-            // Medtech specific colors
-            let fill = 'rgba(255,255,255,0.03)';
-            let stroke = 'rgba(255,255,255,0.1)';
-            
-            if (isSelected) {
-              fill = 'var(--accent-primary)';
-              stroke = 'var(--accent-secondary)';
-            } else if (isHovered) {
-              fill = 'rgba(255,255,255,0.15)';
-              stroke = 'rgba(255,255,255,0.3)';
+        <div className="relative z-10 transition-all duration-500 drop-shadow-[0_15px_35px_rgba(0,0,0,0.6)] group-hover:scale-[1.01]">
+          <Model
+            data={highlightedData}
+            style={{ width: '100%', height: 'auto' }}
+            onClick={handleMuscleClick}
+            type={activeTab}
+            bodyColor="#0f172a" // 核心深藍
+            highlightedColors={
+               activeTab === 'anterior' 
+                 ? ['#3b82f6', '#22d3ee'] // 藍->青 漸層感
+                 : ['#a855f7', '#f472b6'] // 紫->粉 漸層感
             }
-
-            return (
-              <g
-                key={region.id}
-                role="button"
-                tabIndex={0}
-                onClick={() => toggleRegion(region.label)}
-                onMouseEnter={() => setHoveredId(region.id)}
-                onMouseLeave={() => setHoveredId(null)}
-                className="cursor-pointer outline-none transition-all origin-center"
-                style={{ 
-                  filter: isSelected ? 'drop-shadow(0 0 8px var(--accent-primary)) drop-shadow(0 0 12px var(--accent-secondary))' : (isHovered ? 'drop-shadow(0 0 5px rgba(255,255,255,0.4))' : 'none') 
-                }}
-              >
-                {region.elements.map((el, i) => {
-                  const common = {
-                    fill, stroke, strokeWidth: 1.5,
-                    style: { transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)' }
-                  };
-                  switch (el.type) {
-                    case 'ellipse': return <ellipse key={i} cx={el.cx} cy={el.cy} rx={el.rx} ry={el.ry} {...common} />;
-                    case 'rect': return <rect key={i} x={el.x} y={el.y} width={el.width} height={el.height} rx={el.rx ?? 0} {...common} />;
-                    case 'path': return <path key={i} d={el.d} {...common} />;
-                  }
-                })}
-              </g>
-            );
-          })}
-        </svg>
+          />
+        </div>
       </div>
 
-      {/* Selected Tags list below */}
-      <div className="w-full mt-8 relative z-10">
-        <div className="flex flex-wrap gap-2 justify-center min-h-[48px]">
-          {selectedList.length === 0 ? (
-            <span className="text-xs text-[var(--text-secondary)] tracking-widest font-bold border border-[var(--border)] px-4 py-2 rounded-full uppercase bg-[var(--bg-primary)]/50">
-              Awaiting Input
+      {/* 選取狀態標籤區 */}
+      <div className="w-full relative z-10 flex flex-wrap gap-2 justify-center min-h-[48px]">
+        {labelsArray.length === 0 ? (
+          <div className="flex flex-col items-center gap-2 py-2">
+            <span className="text-[10px] text-slate-500 font-bold tracking-[0.2em] uppercase opacity-60">
+              Interactive Anatomical Scan
             </span>
-          ) : (
-            selectedList.map(label => (
-              <span key={label} className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[var(--accent-primary)]/20 text-[var(--accent-secondary)] text-xs font-bold border border-[var(--accent-primary)]/50 shadow-[0_0_10px_rgba(99,102,241,0.2)] backdrop-blur-md">
-                {label}
-                <button type="button" onClick={() => toggleRegion(label)} className="text-[var(--accent-secondary)] hover:text-white transition-colors ml-1 focus:outline-none">
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" /></svg>
-                </button>
-              </span>
-            ))
-          )}
-        </div>
+            <span className="text-xs text-slate-600 italic">請點擊上方部位進行標記</span>
+          </div>
+        ) : (
+          labelsArray.map(label => (
+            <div 
+              key={label} 
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/10 backdrop-blur-md shadow-lg transition-all duration-300 hover:border-white/30 hover:bg-white/10"
+            >
+              <div className={`w-1.5 h-1.5 rounded-full ${
+                activeTab === 'anterior' ? 'bg-blue-400' : 'bg-purple-400'
+              }`} />
+              <span className="text-white text-xs font-bold tracking-tight">{label}</span>
+              <button 
+                type="button" 
+                onClick={() => {
+                  setSelectedLabels((prev) => {
+                    const next = new Set(prev);
+                    next.delete(label);
+                    onChange?.(Array.from(next));
+                    return next;
+                  });
+                }} 
+                className="ml-1 w-4 h-4 rounded-full flex items-center justify-center hover:bg-red-500/80 hover:text-white transition-all text-[10px] text-slate-500"
+              >
+                ✕
+              </button>
+            </div>
+          ))
+        )}
       </div>
     </div>
   );

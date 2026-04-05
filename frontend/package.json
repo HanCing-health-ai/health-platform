@@ -9,10 +9,12 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@ebi-gene-expression-group/anatomogram": "^2.4.0",
     "@supabase/ssr": "^0.9.0",
     "@supabase/supabase-js": "^2.98.0",
     "next": "14.2.35",
     "react": "^18",
+    "react-body-highlighter": "^2.0.5",
     "react-dom": "^18",
     "recharts": "^3.8.0"
   },
