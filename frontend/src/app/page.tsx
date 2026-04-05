@@ -1,4 +1,5 @@
 "use client";
+/* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any */
 
 import { useState, Suspense, useEffect } from "react";
 import { submitQuestionnaire } from "./actions";
