@@ -129,15 +129,16 @@ const BODY_REGIONS: BodyRegionDef[] = [
 ];
 
 /* ============================================================
- * 色彩常數
+ * 色彩及漸層常數 (3D 透亮風格)
  * ============================================================ */
 const COLORS = {
-  default: '#e2e8f0',
-  hover: '#cbd5e1',
-  selected: '#5eead4',
-  selectedHover: '#2dd4bf',
-  stroke: '#94a3b8',
-  selectedStroke: '#14b8a6',
+  default: 'url(#baseGradient)',
+  hover: 'url(#hoverGradient)',
+  selected: 'url(#selectedGradient)',
+  selectedHover: 'url(#selectedGradientBright)',
+  stroke: 'rgba(255, 255, 255, 0.15)',
+  hoverStroke: '#38bdf8',
+  selectedStroke: '#c084fc',
 } as const;
 
 /* ============================================================
@@ -153,7 +154,8 @@ function renderSvgElement(
     fill,
     stroke,
     strokeWidth: 1.2,
-    style: { transition: 'fill 0.2s ease, stroke 0.2s ease' },
+    filter: 'url(#internal-volume)',
+    style: { transition: 'fill 0.4s ease, stroke 0.4s ease' },
   };
 
   switch (el.type) {
@@ -226,27 +228,78 @@ export default function BodyMap({
         className="w-full max-w-[280px] select-none"
         role="img"
         aria-label="互動式人體部位標記圖"
+        style={{ filter: 'drop-shadow(0 10px 25px rgba(0,0,0,0.5))' }}
       >
+        <defs>
+          {/* Base 3D Glassy Texture */}
+          <linearGradient id="baseGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#334155" stopOpacity="0.6" />
+            <stop offset="100%" stopColor="#0f172a" stopOpacity="0.9" />
+          </linearGradient>
+          {/* Hover Neon Blue */}
+          <linearGradient id="hoverGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.6" />
+            <stop offset="100%" stopColor="#0284c7" stopOpacity="0.8" />
+          </linearGradient>
+          {/* Selected MedTech Glow (Indigo-Purple mix) */}
+          <linearGradient id="selectedGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#e879f9" />
+            <stop offset="50%" stopColor="#818cf8" />
+            <stop offset="100%" stopColor="#3b82f6" />
+          </linearGradient>
+          <linearGradient id="selectedGradientBright" x1="0%" y1="100%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor="#f472b6" />
+            <stop offset="50%" stopColor="#a5b4fc" />
+            <stop offset="100%" stopColor="#7dd3fc" />
+          </linearGradient>
+
+          {/* 3D Volumetric Bevel and Inner Shadow filter */}
+          <filter id="internal-volume" x="-20%" y="-20%" width="140%" height="140%">
+            {/* Top-left Highlight (Specular) */}
+            <feGaussianBlur in="SourceAlpha" stdDeviation="2" result="blurHL" />
+            <feOffset dx="-1.5" dy="-1.5" />
+            <feComposite in2="SourceAlpha" operator="arithmetic" k2="-1" k3="1" result="hlDiff" />
+            <feFlood floodColor="rgba(255,255,255,0.7)" floodOpacity="1" />
+            <feComposite in2="hlDiff" operator="in" />
+            <feComposite in2="SourceGraphic" operator="over" result="highlighted" />
+            
+            {/* Bottom-right Shadow (Dark core) */}
+            <feGaussianBlur in="SourceAlpha" stdDeviation="3" result="blurSH" />
+            <feOffset dx="2.5" dy="2.5" />
+            <feComposite in2="SourceAlpha" operator="arithmetic" k2="-1" k3="1" result="shDiff" />
+            <feFlood floodColor="rgba(0,0,0,0.7)" floodOpacity="1" />
+            <feComposite in2="shDiff" operator="in" />
+            <feComposite in2="highlighted" operator="over" />
+          </filter>
+        </defs>
+
         {BODY_REGIONS.map((region) => {
           const isSelected = selected.has(region.label);
           const isHovered = hoveredId === region.id;
 
-          /* 根據狀態決定填充與邊框色 */
+          /* 根據狀態決定填充與邊框色及外層光暈 */
           let fill: string = COLORS.default;
           let stroke: string = COLORS.stroke;
+          let glowClass = '';
+
           if (isSelected && isHovered) {
             fill = COLORS.selectedHover;
             stroke = COLORS.selectedStroke;
+            glowClass = 'drop-shadow-[0_0_15px_rgba(167,139,250,0.9)]';
           } else if (isSelected) {
             fill = COLORS.selected;
             stroke = COLORS.selectedStroke;
+            glowClass = 'drop-shadow-[0_0_12px_rgba(99,102,241,0.8)]';
           } else if (isHovered) {
             fill = COLORS.hover;
+            stroke = COLORS.hoverStroke;
+            glowClass = 'drop-shadow-[0_0_8px_rgba(56,189,248,0.6)]';
           }
 
           return (
             <g
               key={region.id}
+              className={`transition-all duration-300 ${glowClass}`}
               role="button"
               tabIndex={readOnly ? undefined : 0}
               aria-label={`${region.label}${isSelected ? '（已選取）' : ''}`}
@@ -272,18 +325,18 @@ export default function BodyMap({
 
       {/* 已選取部位 Badge 列表 */}
       {selectedLabels.length > 0 && (
-        <div className="flex flex-wrap gap-2 justify-center">
+        <div className="flex flex-wrap gap-2 justify-center mt-4">
           {selectedLabels.map((label) => (
             <span
               key={label}
-              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-teal-100 text-teal-800 text-sm font-medium"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-[var(--accent-primary)] to-[var(--accent-secondary)] text-white text-sm font-bold tracking-widest shadow-[0_4px_15px_rgba(99,102,241,0.4)] border border-white/20 transition-transform duration-300 hover:scale-105"
             >
               {label}
               {!readOnly && (
                 <button
                   type="button"
                   onClick={() => toggleRegion(label)}
-                  className="ml-1 text-teal-500 hover:text-teal-700 text-xs leading-none"
+                  className="ml-1 flex items-center justify-center w-4 h-4 rounded-full bg-black/20 text-white/80 hover:bg-black/40 hover:text-white transition-all text-[10px] leading-none"
                   aria-label={`移除 ${label}`}
                 >
                   ✕
