@@ -96,17 +96,18 @@ function Questionnaire() {
     setOtpError("");
     
     // Fallback or demo mode simulation could go here for EVERY8D migration prep
-    // Currently still uses Twilio fallback in action
-    const { supabase } = await import('../lib/supabaseClient');
-    const { error } = await supabase.auth.signInWithOtp({
-      phone: formatPhoneForAuth(phone)
-    });
+    // TEMPORARY BYPASS FOR TESTING: Skip actual API call
+    // const { supabase } = await import('../lib/supabaseClient');
+    // const { error } = await supabase.auth.signInWithOtp({
+    //   phone: formatPhoneForAuth(phone)
+    // });
+    const error: any = null;
 
     setIsOtpLoading(false);
     if (error) {
       setOtpError("發送失敗: " + error.message);
     } else {
-      setIsOtpSent(true);
+      setIsPhoneVerified(true);
       setOtpError("");
     }
   };
@@ -119,12 +120,15 @@ function Questionnaire() {
     setIsOtpLoading(true);
     setOtpError("");
 
-    const { supabase } = await import('../lib/supabaseClient');
-    const { data, error } = await supabase.auth.verifyOtp({
-      phone: formatPhoneForAuth(phone),
-      token: otp.trim(),
-      type: 'sms'
-    });
+    // TEMPORARY BYPASS FOR TESTING: Always succeed verification
+    // const { supabase } = await import('../lib/supabaseClient');
+    // const { data, error } = await supabase.auth.verifyOtp({
+    //   phone: formatPhoneForAuth(phone),
+    //   token: otp.trim(),
+    //   type: 'sms'
+    // });
+    const error: any = null;
+    const data: any = { session: true };
 
     setIsOtpLoading(false);
     if (error) {
@@ -140,10 +144,10 @@ function Questionnaire() {
       setOtpError("請填寫稱呼");
       return;
     }
-    if (!isPhoneVerified) {
-      setOtpError("請完成手機驗證");
-      return;
-    }
+    // if (!isPhoneVerified) {
+    //   setOtpError("請完成手機驗證");
+    //   return;
+    // }
     setOtpError("");
     
     const sessionData = { name, phone, verified_at: Date.now() };
@@ -279,11 +283,12 @@ function Questionnaire() {
                   <label className="block text-xs font-bold tracking-widest text-[var(--text-secondary)] mb-1 uppercase">Comm Link / 聯絡電話</label>
                   <div className="flex gap-4 items-end">
                     <input readOnly={isPhoneVerified} pattern="^09\d{8}$" type="tel" value={phone} onChange={e => {setPhone(e.target.value); setIsOtpSent(false); setOtpError("");}} className={`w-full input-underline p-3 text-lg font-bold tracking-widest transition-colors ${isPhoneVerified ? 'text-emerald-400 border-emerald-500/50' : 'text-white'}`} placeholder="0912345678" />
-                    {!isPhoneVerified && (
+                    {/* Bypass: Hide transmit button entirely */}
+                    {/* {!isPhoneVerified && (
                       <button type="button" onClick={handleSendOtp} disabled={isOtpLoading || !phone.match(/^09\d{8}$/)} className="shrink-0 bg-[var(--bg-glass)] text-[var(--accent-secondary)] border border-[var(--accent-secondary)] px-5 py-3 rounded-lg font-bold hover:bg-[var(--accent-secondary)] hover:text-white transition-all disabled:opacity-30 disabled:border-slate-700 disabled:text-slate-500 text-sm glow-primary-hover">
                         {isOtpLoading ? 'TX...' : (isOtpSent ? 'RESEND' : 'TRANSMIT')}
                       </button>
-                    )}
+                    )} */}
                   </div>
                   {isPhoneVerified && <p className="text-xs font-bold text-emerald-400 tracking-wider">◆ VERIFIED</p>}
                   
@@ -302,7 +307,7 @@ function Questionnaire() {
                 </div>
 
                 <div className="pt-8">
-                  <button type="button" onClick={goToStep1} disabled={!isPhoneVerified || !name.trim()} className="w-full bg-[var(--accent-primary)] text-white py-4 rounded-xl font-black text-lg tracking-widest disabled:opacity-30 hover:bg-indigo-500 transition-all active:scale-95 glow-primary-hover uppercase">
+                  <button type="button" onClick={goToStep1} disabled={!name.trim()} className="w-full bg-[var(--accent-primary)] text-white py-4 rounded-xl font-black text-lg tracking-widest disabled:opacity-30 hover:bg-indigo-500 transition-all active:scale-95 glow-primary-hover uppercase">
                     Initialize Scan
                   </button>
                 </div>
